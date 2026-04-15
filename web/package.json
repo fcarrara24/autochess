@@ -1,0 +1,16 @@
+{
+  "name": "autochess-web",
+  "version": "1.0.0",
+  "description": "Autochess Battle Simulator Web Interface",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --watch"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "keywords": ["autochess", "web", "simulator", "battle"],
+  "author": "",
+  "license": "MIT"
+}

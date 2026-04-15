@@ -11,7 +11,9 @@
     "run-batch": "ts-node src/cli/runBatch.ts",
     "run-visual": "ts-node src/cli/visualMatch.ts",
     "test-sim": "ts-node src/cli/testSimulator.ts",
-    "debug-target": "ts-node src/cli/debugTarget.ts"
+    "debug-target": "ts-node src/cli/debugTarget.ts",
+    "web": "cd web && npm start",
+    "install-web": "cd web && npm install"
   },
   "keywords": ["autochess", "simulator", "battle", "deterministic"],
   "author": "",

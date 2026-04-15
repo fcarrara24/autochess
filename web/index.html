@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autochess Battle Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 1rem 2rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #ffffff;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            color: #e0e0e0;
+            font-size: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem;
+            gap: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .control-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .simulation-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .grid-container {
+            background: #2d3748;
+            border: 2px solid #1a1a2e;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            display: inline-block;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(12, 40px);
+            grid-template-rows: repeat(6, 40px);
+            gap: 2px;
+            background: #0a0e0a;
+            padding: 12px;
+            border-radius: 8px;
+            min-width: 520px;
+            min-height: 280px;
+        }
+
+        .grid-cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            border: 1px solid #1a1a2e;
+            position: relative;
+            background: #1a1a2e;
+            transition: all 0.2s ease;
+        }
+
+        .grid-cell:hover {
+            background: #2d3748;
+            transform: scale(1.1);
+            z-index: 10;
+        }
+
+        .unit-a { color: #4ade80; }
+        .unit-b { color: #ef4444; }
+        .unit-tank { font-size: 18px; }
+        .unit-ranged { font-size: 16px; }
+        .unit-melee { font-size: 16px; }
+        .unit-fast { font-size: 14px; }
+
+        .stats-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .stat-card {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid #2d3748;
+        }
+
+        .stat-title {
+            color: #4ade80;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .log-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-content {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            background: #0a0e0a;
+            border-radius: 4px;
+            padding: 1rem;
+            border: 1px solid #1a1a2e;
+        }
+
+        button {
+            background: #4ade80;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 0.25rem;
+        }
+
+        button:hover {
+            background: #5cb85c;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        select, input {
+            padding: 0.75rem;
+            border-radius: 6px;
+            border: 1px solid #1a1a2e;
+            background: rgba(255, 255, 255, 0.9);
+            color: #ffffff;
+            font-size: 14px;
+            margin: 0.25rem;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .match-result {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 2px solid #2d3748;
+        }
+
+        .winner { color: #4ade80; font-weight: 700; }
+        .loser { color: #ef4444; }
+        .draw { color: #f59e0b; }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>⚔️ AUTOCHES BATTLE SIMULATOR</h1>
+        <p class="subtitle">Sistema deterministico con visualizzazione web completa</p>
+    </header>
+
+    <main>
+        <section class="control-panel">
+            <h3>🎮 Controllo Simulazione</h3>
+            <div class="button-group">
+                <button id="startBtn" onclick="startSimulation()">Inizia Simulazione</button>
+                <button id="pauseBtn" onclick="pauseSimulation()" disabled>Pausa</button>
+                <button id="stepBtn" onclick="stepSimulation()">Step</button>
+                <button id="resetBtn" onclick="resetSimulation()">Reset</button>
+                <button id="populateBtn" onclick="populateSquad()">Popola Squadra</button>
+            </div>
+            
+            <div style="margin-top: 1rem;">
+                <label>Velocità: <input type="range" id="speedSlider" min="10" max="1000" value="100"> <span id="speedValue">100</span>ms</label>
+            </div>
+
+            <div style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.1); border-radius: 8px;">
+                <h4>⌨️ Controlli Tastiera:</h4>
+                <div style="font-size: 14px; line-height: 1.4;">
+                    <strong>→ Freccia Destra:</strong> Avanza fase<br>
+                    <strong>← Freccia Sinistra:</strong> Fase precedente<br>
+                    <strong>↑ Freccia Su / Spazio:</strong> Toggle Autoplay<br>
+                    <strong>↓ Freccia Giù:</strong> Reset simulazione
+                </div>
+            </div>
+        </section>
+
+        <section class="simulation-panel">
+            <h3>🗺️ Campo di Battaglia (12x6)</h3>
+            <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                <button onclick="zoomIn()">🔍 Zoom+</button>
+                <button onclick="zoomOut()">🔍 Zoom-</button>
+                <button onclick="centerView()">🎯 Center</button>
+                <button onclick="previousMove()">⏪ Previous Move</button>
+                <button onclick="nextMove()">⏩ Next Move</button>
+                <button onclick="populateSquad()">👥 Popola Squadra</button>
+            </div>
+            <div style="margin-bottom: 1rem; font-size: 14px; color: #ccc;">
+                <strong>Coordinate:</strong> X: 0-11, Y: 0-5 | 
+                <strong>Unità:</strong> Team A (verde) vs Team B (rosso)
+            </div>
+            <div class="grid-container" style="overflow: auto; max-height: 500px; border: 2px solid #1a1a2e; border-radius: 8px; background: #0a0e0a;">
+                <div id="grid" style="padding: 12px;"></div>
+            </div>
+        </section>
+
+        <section class="stats-panel">
+            <h3>📊 Statistiche Match</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Tick Corrente</div>
+                    <div id="currentTick">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Fase Corrente</div>
+                    <div id="currentPhase" style="font-weight: bold; color: #4ade80;">IDLE</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Unità Team A</div>
+                    <div id="teamAUnits">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Unità Team B</div>
+                    <div id="teamBUnits">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Danno Team A</div>
+                    <div id="damageA">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Danno Team B</div>
+                    <div id="damageB">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Autoplay</div>
+                    <div id="autoplayStatus" style="font-weight: bold; color: #f59e0b;">OFF</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="log-panel">
+            <h3>📜 Log Eventi</h3>
+            <div class="log-content" id="eventLog">
+                In attesa di simulazione...
+            </div>
+        </section>
+    </main>
+
+    <script>
+        class AutochessSimulator {
+            constructor() {
+                this.grid = [];
+                this.units = [];
+                this.templates = new Map();
+                this.currentTick = 0;
+                this.currentPhase = 'idle'; // 'idle', 'movement', 'attack', 'damage'
+                this.isRunning = false;
+                this.isPaused = false;
+                this.simulationSpeed = 100;
+                this.zoom = 1;
+                this.animationFrame = null;
+                this.autoplayEnabled = false;
+                this.autoplaySpeed = 500; // ms between phases
+                
+                // Move history for undo/redo
+                this.moveHistory = [];
+                this.currentMoveIndex = -1;
+                
+                this.initializeTemplates();
+                this.setupEventListeners();
+                this.setupKeyboardControls();
+                this.updateDisplay();
+            }
+
+            initializeTemplates() {
+                // Unit templates
+                this.templates.set('tank', {
+                    id: 'tank',
+                    name: 'Tank',
+                    hp: 150,
+                    damage: 20,
+                    range: 1,
+                    movementCooldown: 3,
+                    attackCooldown: 2,
+                    tags: ['melee', 'tank', 'slow']
+                });
+                
+                this.templates.set('ranged', {
+                    id: 'ranged',
+                    name: 'Ranged',
+                    hp: 60,
+                    damage: 35,
+                    range: 4,
+                    movementCooldown: 3,
+                    attackCooldown: 2,
+                    tags: ['ranged', 'glass_cannon']
+                });
+                
+                this.templates.set('melee', {
+                    id: 'melee',
+                    name: 'Melee',
+                    hp: 100,
+                    damage: 30,
+                    range: 1,
+                    movementCooldown: 2,
+                    attackCooldown: 1,
+                    tags: ['melee', 'balanced']
+                });
+                
+                this.templates.set('fast_melee', {
+                    id: 'fast_melee',
+                    name: 'Fast Melee',
+                    hp: 80,
+                    damage: 25,
+                    range: 1,
+                    movementCooldown: 1,
+                    attackCooldown: 1,
+                    tags: ['melee', 'fast', 'glass_cannon']
+                });
+            }
+
+            setupEventListeners() {
+                document.getElementById('speedSlider').addEventListener('input', (e) => {
+                    this.simulationSpeed = parseInt(e.target.value);
+                    document.getElementById('speedValue').textContent = e.target.value;
+                });
+            }
+
+            setupKeyboardControls() {
+                document.addEventListener('keydown', (e) => {
+                    switch(e.key) {
+                        case 'ArrowRight':
+                            e.preventDefault();
+                            this.advancePhase();
+                            break;
+                        case 'ArrowLeft':
+                            e.preventDefault();
+                            this.previousPhase();
+                            break;
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            this.toggleAutoplay();
+                            break;
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.resetSimulation();
+                            break;
+                        case ' ':
+                            e.preventDefault();
+                            this.toggleAutoplay();
+                            break;
+                    }
+                });
+            }
+
+            createTeam(deckName, teamId, side) {
+                const deck = {
+                    'turtle': [
+                        { templateId: 'tank', count: 3 },
+                        { templateId: 'ranged', count: 2 }
+                    ],
+                    'aggro': [
+                        { templateId: 'fast_melee', count: 4 },
+                        { templateId: 'melee', count: 1 }
+                    ],
+                    'balanced': [
+                        { templateId: 'tank', count: 1 },
+                        { templateId: 'melee', count: 2 },
+                        { templateId: 'ranged', count: 2 }
+                    ]
+                };
+
+                const selectedDeck = deck[deckName] || deck['balanced'];
+                const units = [];
+                let unitId = 0;
+
+                for (const unit of selectedDeck) {
+                    const template = this.templates.get(unit.templateId);
+                    if (!template) continue;
+
+                    for (let i = 0; i < unit.count; i++) {
+                        const y = Math.floor((i + 1) * 6 / (selectedDeck.length + 1));
+                        const x = side === 'left' ? 0 : 11;
+                        
+                        units.push({
+                            id: `${teamId}_${unitId}_${i}`,
+                            templateId: unit.templateId,
+                            position: { x, y },
+                            teamId: teamId,
+                            currentHp: template.hp,
+                            lastMoveTick: -1,
+                            lastAttackTick: -1,
+                            alive: true
+                        });
+                        unitId++;
+                    }
+                }
+
+                return units;
+            }
+
+            initializeGrid() {
+                this.grid = Array(6).fill(null).map(() => Array(12).fill('.'));
+                this.units.forEach(unit => {
+                    if (unit.alive && unit.position.x >= 0 && unit.position.x < 12 && unit.position.y >= 0 && unit.position.y < 6) {
+                        if (this.grid[unit.position.y] && this.grid[unit.position.y][unit.position.x] !== undefined) {
+                            this.grid[unit.position.y][unit.position.x] = this.getUnitSymbol(unit);
+                        }
+                    }
+                });
+            }
+
+            getUnitSymbol(unit) {
+                const template = this.templates.get(unit.templateId);
+                const symbol = template.id.charAt(0).toUpperCase();
+                return unit.teamId === 'teamA' ? symbol : symbol.toLowerCase();
+            }
+
+            getDistance(pos1, pos2) {
+                return Math.abs(pos1.x - pos2.x) + Math.abs(pos1.y - pos2.y);
+            }
+
+            findTargetInRange(unit, enemies) {
+                const template = this.templates.get(unit.templateId);
+                if (!template) return null;
+
+                const targetsInRange = enemies.filter(enemy => {
+                    if (!enemy.alive) return false;
+                    const distance = this.getDistance(unit.position, enemy.position);
+                    return distance <= template.range;
+                });
+
+                if (targetsInRange.length === 0) return null;
+
+                targetsInRange.sort((a, b) => {
+                    const distA = this.getDistance(unit.position, a.position);
+                    const distB = this.getDistance(unit.position, b.position);
+                    if (distA !== distB) return distA - distB;
+                    return a.id.localeCompare(b.id);
+                });
+
+                return targetsInRange[0];
+            }
+
+            processMovement() {
+                this.units.forEach(unit => {
+                    if (!unit.alive) return;
+
+                    const template = this.templates.get(unit.templateId);
+                    if (!template) return;
+
+                    if ((this.currentTick - unit.lastMoveTick) < template.movementCooldown) {
+                        return;
+                    }
+
+                    // Simple movement towards enemy
+                    const enemies = this.units.filter(u => u.teamId !== unit.teamId && u.alive);
+                    if (enemies.length === 0) return;
+
+                    const nearestEnemy = enemies.reduce((nearest, enemy) => {
+                        const distNearest = this.getDistance(unit.position, nearest.position);
+                        const distCurrent = this.getDistance(unit.position, enemy.position);
+                        return distCurrent < distNearest ? enemy : nearest;
+                    });
+
+                    const oldPos = { ...unit.position };
+                    const newPos = this.calculateNextPosition(unit.position, nearestEnemy.position);
+
+                    // Check if position is valid and not occupied
+                    if (newPos.x >= 0 && newPos.x < 12 && newPos.y >= 0 && newPos.y < 6) {
+                        const occupied = this.units.some(u => 
+                            u.alive && u.id !== unit.id && 
+                            u.position.x === newPos.x && u.position.y === newPos.y
+                        );
+
+                        if (!occupied) {
+                            // Clear old position (with safety check)
+                            if (this.grid[unit.position.y] && this.grid[unit.position.y][unit.position.x] !== undefined) {
+                                this.grid[unit.position.y][unit.position.x] = '.';
+                            }
+                            
+                            // Update unit and grid
+                            unit.position = newPos;
+                            unit.lastMoveTick = this.currentTick;
+                            
+                            // Set new position (with safety check)
+                            if (this.grid[newPos.y] && this.grid[newPos.y][newPos.x] !== undefined) {
+                                this.grid[newPos.y][newPos.x] = this.getUnitSymbol(unit);
+                            }
+                            
+                            this.logEvent(`${unit.templateId} si muove da (${oldPos.x},${oldPos.y}) a (${newPos.x},${newPos.y})`);
+                        }
+                    }
+                });
+            }
+
+            calculateNextPosition(currentPos, targetPos) {
+                const dx = Math.sign(targetPos.x - currentPos.x);
+                const dy = Math.sign(targetPos.y - currentPos.y);
+                
+                // Try direct movement first
+                const directPos = {
+                    x: currentPos.x + dx,
+                    y: currentPos.y + dy
+                };
+
+                // Check if direct position is valid
+                if (directPos.x >= 0 && directPos.x < 12 && directPos.y >= 0 && directPos.y < 6) {
+                    const occupied = this.units.some(u => 
+                        u.alive && u.position.x === directPos.x && u.position.y === directPos.y
+                    );
+                    
+                    if (!occupied) {
+                        return directPos;
+                    }
+                }
+
+                // Try alternative positions
+                const alternatives = [
+                    { x: currentPos.x + dx, y: currentPos.y },
+                    { x: currentPos.x, y: currentPos.y + dy },
+                    { x: currentPos.x - dx, y: currentPos.y },
+                    { x: currentPos.x, y: currentPos.y - dy }
+                ];
+
+                for (const alt of alternatives) {
+                    if (alt.x >= 0 && alt.x < 12 && alt.y >= 0 && alt.y < 6) {
+                        const occupied = this.units.some(u => 
+                            u.alive && u.position.x === alt.x && u.position.y === alt.y
+                        );
+                        
+                        if (!occupied) {
+                            return alt;
+                        }
+                    }
+                }
+
+                return currentPos; // No movement possible
+            }
+
+            processAttacks() {
+                const attacks = [];
+
+                this.units.forEach(unit => {
+                    if (!unit.alive) return;
+
+                    const template = this.templates.get(unit.templateId);
+                    if (!template) return;
+
+                    if ((this.currentTick - unit.lastAttackTick) < template.attackCooldown) {
+                        return;
+                    }
+
+                    const enemies = this.units.filter(u => u.teamId !== unit.teamId && u.alive);
+                    const target = this.findTargetInRange(unit, enemies);
+
+                    if (target) {
+                        attacks.push({
+                            attackerId: unit.id,
+                            targetId: target.id,
+                            damage: template.damage
+                        });
+                        unit.lastAttackTick = this.currentTick;
+                        
+                        this.logEvent(`${unit.templateId} attacca ${target.templateId} per ${template.damage} danni`);
+                    }
+                });
+
+                return attacks;
+            }
+
+            applyDamage(attacks) {
+                const deaths = [];
+
+                attacks.forEach(attack => {
+                    const target = this.units.find(u => u.id === attack.targetId);
+                    if (!target || !target.alive) return;
+
+                    target.currentHp -= attack.damage;
+                    
+                    if (target.currentHp <= 0) {
+                        target.currentHp = 0;
+                        target.alive = false;
+                        deaths.push({
+                            unitId: target.id,
+                            teamId: target.teamId,
+                            tick: this.currentTick
+                        });
+                        
+                        this.logEvent(`${target.templateId} viene sconfitto!`);
+                        
+                        // Clear from grid (with safety check)
+                        if (this.grid[target.position.y] && this.grid[target.position.y][target.position.x] !== undefined) {
+                            this.grid[target.position.y][target.position.x] = '.';
+                        }
+                    }
+                });
+
+                return deaths;
+            }
+
+            processTick() {
+                this.logEvent(`--- TICK ${this.currentTick} ---`);
+                
+                // Ensure grid is properly initialized
+                if (!this.grid || this.grid.length === 0) {
+                    this.initializeGrid();
+                }
+                
+                // Movement phase
+                this.processMovement();
+                
+                // Attack phase
+                const attacks = this.processAttacks();
+                const deaths = this.applyDamage(attacks);
+
+                // Update display
+                this.updateDisplay();
+                this.currentTick++;
+            }
+
+            updateDisplay() {
+                // Update grid
+                this.renderGrid();
+                
+                // Update stats
+                document.getElementById('currentTick').textContent = this.currentTick;
+                
+                // Update phase display
+                const phaseElement = document.getElementById('currentPhase');
+                const phaseText = this.currentPhase.toUpperCase();
+                phaseElement.textContent = phaseText;
+                
+                // Color code phases
+                phaseElement.style.color = 
+                    this.currentPhase === 'movement' ? '#4ade80' :
+                    this.currentPhase === 'attack' ? '#ef4444' :
+                    this.currentPhase === 'damage' ? '#f59e0b' :
+                    '#667eea'; // idle
+                
+                // Update autoplay status
+                const autoplayElement = document.getElementById('autoplayStatus');
+                autoplayElement.textContent = this.autoplayEnabled ? 'ON' : 'OFF';
+                autoplayElement.style.color = this.autoplayEnabled ? '#4ade80' : '#f59e0b';
+                
+                document.getElementById('teamAUnits').textContent = this.units.filter(u => u.teamId === 'teamA' && u.alive).length;
+                document.getElementById('teamBUnits').textContent = this.units.filter(u => u.teamId === 'teamB' && u.alive).length;
+                
+                // Calculate damage
+                let damageA = 0, damageB = 0;
+                this.units.forEach(u => {
+                    if (!u.alive) return;
+                    const template = this.templates.get(u.templateId);
+                    if (template && u.teamId === 'teamA') damageA += template.damage;
+                    if (template && u.teamId === 'teamB') damageB += template.damage;
+                });
+                
+                document.getElementById('damageA').textContent = damageA;
+                document.getElementById('damageB').textContent = damageB;
+            }
+
+            renderGrid() {
+                // Ensure grid is initialized
+                if (!this.grid || this.grid.length === 0) {
+                    this.initializeGrid();
+                }
+
+                const gridElement = document.getElementById('grid');
+                gridElement.innerHTML = '';
+                gridElement.style.display = 'grid';
+                gridElement.style.gridTemplateColumns = 'repeat(12, 40px)';
+                gridElement.style.gridTemplateRows = 'repeat(6, 40px)';
+                gridElement.style.gap = '2px';
+                
+                // Create grid with coordinates for debugging
+                for (let y = 0; y < 6; y++) {
+                    for (let x = 0; x < 12; x++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        cell.style.width = '40px';
+                        cell.style.height = '40px';
+                        cell.style.display = 'flex';
+                        cell.style.alignItems = 'center';
+                        cell.style.justifyContent = 'center';
+                        cell.style.fontSize = '16px';
+                        cell.style.fontWeight = 'bold';
+                        cell.style.border = '1px solid #1a1a2e';
+                        cell.style.background = '#1a1a2e';
+                        cell.style.position = 'relative';
+                        cell.title = `(${x},${y})`; // Tooltip with coordinates
+                        
+                        // Get unit at this position
+                        const unit = this.units.find(u => u.alive && u.position.x === x && u.position.y === y);
+                        
+                        if (unit) {
+                            const template = this.templates.get(unit.templateId);
+                            if (template) {
+                                cell.textContent = this.getUnitSymbol(unit);
+                                cell.classList.add(`unit-${unit.teamId}`);
+                                cell.classList.add(`unit-${template.id.split('_')[0]}`);
+                                cell.style.color = unit.teamId === 'teamA' ? '#4ade80' : '#ef4444';
+                                cell.style.background = '#2d3748';
+                            }
+                        } else {
+                            cell.textContent = '.';
+                            cell.style.color = '#666';
+                        }
+                        
+                        gridElement.appendChild(cell);
+                    }
+                }
+            }
+
+            logEvent(message) {
+                const logElement = document.getElementById('eventLog');
+                const timestamp = new Date().toLocaleTimeString();
+                logElement.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+
+            startSimulation() {
+                if (this.isRunning) return;
+                
+                this.resetSimulation();
+                this.isRunning = true;
+                this.isPaused = false;
+                
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('pauseBtn').disabled = false;
+                document.getElementById('stepBtn').disabled = true;
+                
+                this.runSimulation();
+            }
+
+            pauseSimulation() {
+                this.isPaused = !this.isPaused;
+                document.getElementById('pauseBtn').textContent = this.isPaused ? '▶️ Riprendi' : '⏸️ Pausa';
+            }
+
+            stepSimulation() {
+                if (!this.isRunning || this.isPaused) {
+                    this.startSimulation();
+                    this.isPaused = true;
+                }
+                this.processTick();
+            }
+
+            resetSimulation() {
+                this.isRunning = false;
+                this.isPaused = false;
+                this.currentTick = 0;
+                
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+                document.getElementById('stepBtn').disabled = true;
+                
+                this.setupTeams();
+                this.initializeGrid();
+                this.updateDisplay();
+                this.logEvent('Simulazione resettata');
+            }
+
+            setupTeams() {
+                const deckA = document.getElementById('deckA')?.value || 'turtle';
+                const deckB = document.getElementById('deckB')?.value || 'aggro';
+                
+                this.units = [
+                    ...this.createTeam(deckA, 'teamA', 'left'),
+                    ...this.createTeam(deckB, 'teamB', 'right')
+                ];
+            }
+
+            populateWithSquad() {
+                // Popola la griglia con una squadra predefinita
+                this.units = [
+                    // Team A (verde) - Squadra Turtle
+                    {
+                        id: 'teamA_tank_0',
+                        templateId: 'tank',
+                        position: { x: 0, y: 1 },
+                        teamId: 'teamA',
+                        currentHp: 150,
+                        lastMoveTick: -1,
+                        lastAttackTick: -1,
+                        alive: true
+                    },
+                    {
+                        id: 'teamA_tank_1',
+                        templateId: 'tank',
+                        position: { x: 0, y: 2 },
+                        teamId: 'teamA',
+                        currentHp: 150,
+                        lastMoveTick: -1,
+                        lastAttackTick: -1,
+                        alive: true
+                    },
+                    {
+                        id: 'teamA_tank_2',
+                        templateId: 'tank',
+                        position: { x: 0, y: 3 },
+                        teamId: 'teamA',
+                        currentHp: 150,
+                        lastMoveTick: -1,
+                        lastAttackTick: -1,
+                        alive: true
+                    },
+                    {
+                        id: 'teamA_ranged_0',
+                        templateId: 'ranged',
+                        position: { x: 1, y: 1 },
+                        teamId: 'teamA',
+                        currentHp: 60,
+                        lastMoveTick: -1,
+                        lastAttackTick: -1,
+                        alive: true
+                    },
+                    {
+                        id: 'teamA_ranged_1',
+                        templateId: 'ranged',
+                        position: { x: 1, y: 3 },
+                        teamId: 'teamA',
+                        currentHp: 60,
+                        lastMoveTick: -1,
+                        lastAttackTick: -1,
+                        alive: true
+                    },
+                    
+                    // Team B (rosso) - Squadra Aggro
+                    {
+                        id: 'teamB_fast_melee_0',
+                        templateId: 'fast_melee',
+                        position: { x: 11, y: 0 },
+                        teamId: 'teamB',
+                        currentHp: 80,
+                        lastMoveTick: -1,
+                        lastAttackTick: -1,
+                        alive: true
+                    },
+                    {
+                        id: 'teamB_fast_melee_1',
+                        templateId: 'fast_melee',
+                        position: { x: 11, y: 1 },
+                        teamId: 'teamB',
+                        currentHp: 80,
+                        lastMoveTick: -1,
+                        lastAttackTick: -1,
+                        alive: true
+                    },
+                    {
+                        id: 'teamB_fast_melee_2',
+                        templateId: 'fast_melee',
+                        position: { x: 11, y: 2 },
+                        teamId: 'teamB',
+                        currentHp: 80,
+                        lastMoveTick: -1,
+                        lastAttackTick: -1,
+                        alive: true
+                    },
+                    {
+                        id: 'teamB_fast_melee_3',
+                        templateId: 'fast_melee',
+                        position: { x: 11, y: 3 },
+                        teamId: 'teamB',
+                        currentHp: 80,
+                        lastMoveTick: -1,
+                        lastAttackTick: -1,
+                        alive: true
+                    },
+                    {
+                        id: 'teamB_melee_0',
+                        templateId: 'melee',
+                        position: { x: 11, y: 4 },
+                        teamId: 'teamB',
+                        currentHp: 100,
+                        lastMoveTick: -1,
+                        lastAttackTick: -1,
+                        alive: true
+                    }
+                ];
+                
+                this.logEvent('Griglia popolata con squadra predefinita!');
+                this.updateDisplay();
+            }
+
+            runSimulation() {
+                if (!this.isRunning || this.isPaused) return;
+                
+                this.processTick();
+                
+                if (this.checkWinCondition()) {
+                    this.endSimulation();
+                } else {
+                    this.animationFrame = requestAnimationFrame(() => this.runSimulation());
+                }
+            }
+
+            checkWinCondition() {
+                const aliveA = this.units.filter(u => u.teamId === 'teamA' && u.alive).length;
+                const aliveB = this.units.filter(u => u.teamId === 'teamB' && u.alive).length;
+                
+                return aliveA === 0 || aliveB === 0;
+            }
+
+            endSimulation() {
+                this.isRunning = false;
+                
+                if (this.animationFrame) {
+                    cancelAnimationFrame(this.animationFrame);
+                    this.animationFrame = null;
+                }
+                
+                const aliveA = this.units.filter(u => u.teamId === 'teamA' && u.alive).length;
+                const aliveB = this.units.filter(u => u.teamId === 'teamB' && u.alive).length;
+                
+                let result = '';
+                if (aliveA > 0 && aliveB === 0) {
+                    result = '<div class="match-result winner">🏆 TEAM A VINCE!</div>';
+                } else if (aliveB > 0 && aliveA === 0) {
+                    result = '<div class="match-result winner">🏆 TEAM B VINCE!</div>';
+                } else {
+                    result = '<div class="match-result draw">🤝 PAREGGIO!</div>';
+                }
+                
+                const resultsDiv = document.createElement('div');
+                resultsDiv.innerHTML = `
+                    <h3>Risultati Finali</h3>
+                    <div class="results-grid">
+                        <div class="stat-card">
+                            <div class="stat-title">Team A</div>
+                            <div>Unità sopravvissute: ${aliveA}</div>
+                            <div>Danno totale: ${this.calculateTotalDamage('teamA')}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">Team B</div>
+                            <div>Unità sopravvissute: ${aliveB}</div>
+                            <div>Danno totale: ${this.calculateTotalDamage('teamB')}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-title">Durata</div>
+                            <div>${this.currentTick} tick</div>
+                        </div>
+                    </div>
+                    ${result}
+                `;
+                
+                document.querySelector('.simulation-panel').appendChild(resultsDiv);
+                
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+                document.getElementById('stepBtn').disabled = true;
+                
+                this.logEvent(`Simulazione completata! ${result}`);
+            }
+
+            calculateTotalDamage(teamId) {
+                return this.units
+                    .filter(u => u.teamId === teamId)
+                    .reduce((total, u) => total + (this.templates.get(u.templateId)?.damage || 0), 0);
+            }
+
+            zoomIn() {
+                this.zoom = Math.min(this.zoom + 0.2, 3);
+                this.updateDisplay();
+            }
+
+            zoomOut() {
+                this.zoom = Math.max(this.zoom - 0.2, 0.5);
+                this.updateDisplay();
+            }
+
+            centerView() {
+                this.zoom = 1;
+                this.updateDisplay();
+            }
+
+            advancePhase() {
+                if (!this.units || this.units.length === 0) {
+                    this.populateWithSquad();
+                    return;
+                }
+
+                // Save state before making move
+                this.saveState();
+
+                switch(this.currentPhase) {
+                    case 'idle':
+                        this.currentPhase = 'movement';
+                        this.processMovement();
+                        this.logEvent('FASE MOVIMENTO');
+                        break;
+                    case 'movement':
+                        this.currentPhase = 'attack';
+                        this.processAttacks();
+                        this.logEvent('FASE ATTACCO');
+                        break;
+                    case 'attack':
+                        this.currentPhase = 'damage';
+                        this.applyDamage(this.pendingAttacks || []);
+                        this.logEvent('FASE DANNO');
+                        break;
+                    case 'damage':
+                        this.currentTick++;
+                        this.currentPhase = 'movement';
+                        this.processMovement();
+                        this.logEvent(`TICK ${this.currentTick} - MOVIMENTO`);
+                        break;
+                }
+                
+                this.updateDisplay();
+                this.checkWinCondition();
+            }
+
+            previousPhase() {
+                if (this.currentTick > 0) {
+                    this.currentTick--;
+                    this.currentPhase = 'idle';
+                    this.logEvent(`⏪ TORNATO A TICK ${this.currentTick}`);
+                    this.updateDisplay();
+                }
+            }
+
+            toggleAutoplay() {
+                this.autoplayEnabled = !this.autoplayEnabled;
+                
+                if (this.autoplayEnabled) {
+                    this.logEvent('▶️ AUTOPLAY ATTIVATO');
+                    this.startAutoplay();
+                } else {
+                    this.logEvent('⏸️ AUTOPLAY DISATTIVATO');
+                    this.stopAutoplay();
+                }
+            }
+
+            startAutoplay() {
+                if (this.autoplayInterval) {
+                    clearInterval(this.autoplayInterval);
+                }
+                
+                this.autoplayInterval = setInterval(() => {
+                    if (this.checkWinCondition()) {
+                        this.toggleAutoplay();
+                        this.endSimulation();
+                    } else {
+                        this.advancePhase();
+                    }
+                }, this.autoplaySpeed);
+            }
+
+            stopAutoplay() {
+                if (this.autoplayInterval) {
+                    clearInterval(this.autoplayInterval);
+                    this.autoplayInterval = null;
+                }
+            }
+
+            processAttacks() {
+                const attacks = [];
+
+                this.units.forEach(unit => {
+                    if (!unit.alive) return;
+
+                    const template = this.templates.get(unit.templateId);
+                    if (!template) return;
+
+                    if ((this.currentTick - unit.lastAttackTick) < template.attackCooldown) {
+                        return;
+                    }
+
+                    const enemies = this.units.filter(u => u.teamId !== unit.teamId && u.alive);
+                    const target = this.findTargetInRange(unit, enemies);
+
+                    if (target) {
+                        attacks.push({
+                            attackerId: unit.id,
+                            targetId: target.id,
+                            damage: template.damage
+                        });
+                        unit.lastAttackTick = this.currentTick;
+                        
+                        this.logEvent(`${unit.templateId} attacca ${target.templateId} per ${template.damage} danni`);
+                    }
+                });
+
+                this.pendingAttacks = attacks;
+                return attacks;
+            }
+
+            applyDamage(attacks) {
+                const deaths = [];
+
+                attacks.forEach(attack => {
+                    const target = this.units.find(u => u.id === attack.targetId);
+                    if (!target || !target.alive) return;
+
+                    target.currentHp -= attack.damage;
+                    
+                    if (target.currentHp <= 0) {
+                        target.currentHp = 0;
+                        target.alive = false;
+                        deaths.push({
+                            unitId: target.id,
+                            teamId: target.teamId,
+                            tick: this.currentTick
+                        });
+                        
+                        this.logEvent(`${target.templateId} viene sconfitto!`);
+                        
+                        // Clear from grid (with safety check)
+                        if (this.grid[target.position.y] && this.grid[target.position.y][target.position.x] !== undefined) {
+                            this.grid[target.position.y][target.position.x] = '.';
+                        }
+                    }
+                });
+
+                return deaths;
+            }
+
+            saveState() {
+                const state = {
+                    tick: this.currentTick,
+                    phase: this.currentPhase,
+                    units: JSON.parse(JSON.stringify(this.units)),
+                    grid: JSON.parse(JSON.stringify(this.grid))
+                };
+                
+                // Remove any future states if we're not at the end
+                this.moveHistory = this.moveHistory.slice(0, this.currentMoveIndex + 1);
+                this.moveHistory.push(state);
+                this.currentMoveIndex++;
+                
+                // Limit history to 100 moves
+                if (this.moveHistory.length > 100) {
+                    this.moveHistory.shift();
+                    this.currentMoveIndex--;
+                }
+            }
+
+            restoreState(index) {
+                if (index < 0 || index >= this.moveHistory.length) return;
+                
+                const state = this.moveHistory[index];
+                this.currentTick = state.tick;
+                this.currentPhase = state.phase;
+                this.units = JSON.parse(JSON.stringify(state.units));
+                this.grid = JSON.parse(JSON.stringify(state.grid));
+                this.currentMoveIndex = index;
+                
+                this.updateDisplay();
+                this.logEvent(`Ripristinato stato: Tick ${state.tick}, Fase ${state.phase}`);
+            }
+
+            previousMove() {
+                if (this.currentMoveIndex > 0) {
+                    this.restoreState(this.currentMoveIndex - 1);
+                } else {
+                    this.logEvent('Nessuna mossa precedente disponibile');
+                }
+            }
+
+            nextMove() {
+                if (this.currentMoveIndex < this.moveHistory.length - 1) {
+                    this.restoreState(this.currentMoveIndex + 1);
+                } else {
+                    this.logEvent('Nessuna mossa successiva disponibile');
+                }
+            }
+        }
+
+        // Global functions for button handlers
+        function startSimulation() {
+            simulator.startSimulation();
+        }
+
+        function pauseSimulation() {
+            simulator.pauseSimulation();
+        }
+
+        function stepSimulation() {
+            simulator.stepSimulation();
+        }
+
+        function resetSimulation() {
+            simulator.resetSimulation();
+        }
+
+        function populateSquad() {
+            simulator.populateWithSquad();
+        }
+
+        function previousMove() {
+            simulator.previousMove();
+        }
+
+        function nextMove() {
+            simulator.nextMove();
+        }
+
+        // Initialize simulator when page loads
+        const simulator = new AutochessSimulator();
+    </script>
+</body>
+</html>
