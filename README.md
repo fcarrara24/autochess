@@ -28,14 +28,28 @@ npm run dev -- --init-db
 ### Run a Single Match
 
 ```bash
-npm run run-match -- --deckA turtle --deckB aggro --logging
+npm run run-match -- --deckA turtle --deckB aggro
 ```
 
 ### Run Batch Simulations
 
 ```bash
-npm run run-batch -- --iterations 100 --decks turtle,aggro,balanced
+npm run run-batch -- --matches 100 --decks turtle,aggro,balanced
 ```
+
+### Run Visual Terminal
+
+```bash
+npm run run-visual -- --deckA turtle --deckB aggro --speed 50
+```
+
+### Run Unified Web Interface
+
+```bash
+npm run server
+```
+
+Then open http://localhost:3000 in your web browser.
 
 ## Architecture
 
