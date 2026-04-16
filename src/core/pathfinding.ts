@@ -9,6 +9,8 @@ export interface PathNode {
   parent: PathNode | null;
 }
 
+
+// Path finder integrato con sistema stati finiti e target fisso 
 export class SimplePathfinder {
   static findPath(
     start: Position,
@@ -79,22 +81,54 @@ export class SimplePathfinder {
   }
 
   private static selectBestNeighbor(neighbors: Position[], target: Position): Position {
-    // Select neighbor that minimizes distance to target
-    let best = neighbors[0];
-    let bestDistance = this.getDistance(best, target);
-
-    for (let i = 1; i < neighbors.length; i++) {
-      const distance = this.getDistance(neighbors[i], target);
+    // Schema priorità deterministico:
+    /*
+      |2|1|3
+      |4|u|5
+      |7|6|8
+    */
+    // u rappresenta l'unità, in ordine viene dato priorità alle truppe "avanti"  
+    // centrali rispetto a quelle laterali, sinistra rispetto a destra
+    
+    // Calcola direzione verso target
+    const dx = Math.sign(target.x - neighbors[0].x);
+    const dy = Math.sign(target.y - neighbors[0].y);
+    
+    // Mappa direzioni a priorità
+    const directionPriority: Record<string, number> = {
+      '0,1': 1,   // avanti
+      '-1,0': 2,  // sinistra
+      '1,0': 3,   // destra
+      '0,-1': 4,  // indietro
+    };
+    
+    // Ordina vicini per distanza, poi per priorità direzionale deterministica
+    const sortedNeighbors = [...neighbors].sort((a, b) => {
+      const distA = this.getDistance(a, target);
+      const distB = this.getDistance(b, target);
       
-      // Prefer forward movement if distances are equal
-      if (distance < bestDistance || 
-          (distance === bestDistance && neighbors[i].x > best.x)) {
-        best = neighbors[i];
-        bestDistance = distance;
+      if (distA !== distB) {
+        return distA - distB; // Priorità distanza minima
       }
-    }
+      
+      // A parità di distanza, usa schema priorità deterministico
+      const dirA = `${Math.sign(a.x - neighbors[0].x)},${Math.sign(a.y - neighbors[0].y)}`;
+      const dirB = `${Math.sign(b.x - neighbors[0].x)},${Math.sign(b.y - neighbors[0].y)}`;
+      
+      const priorityA = directionPriority[dirA] || 99;
+      const priorityB = directionPriority[dirB] || 99;
+      
+      if (priorityA !== priorityB) {
+        return priorityA - priorityB;
+      }
+      
+      // Se ancora pari, usa ordinamento consistente basato su coordinate
+      const coordA = `${a.x},${a.y}`;
+      const coordB = `${b.x},${b.y}`;
+      return coordA.localeCompare(coordB);
+    });
 
-    return best;
+    return sortedNeighbors[0];
   }
 
   static getDistance(pos1: Position, pos2: Position): number {

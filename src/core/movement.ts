@@ -1,6 +1,7 @@
 import { UnitInstance, Position } from '../entities/unitInstance';
 import { UnitTemplate } from '../entities/unitTemplate';
 import { Grid } from '../utils/grid';
+import { SimplePathfinder } from './pathfinding';
 
 export function tryMoveUnit(
   unit: UnitInstance,
@@ -9,7 +10,37 @@ export function tryMoveUnit(
   currentTick: number,
   enemyPositions: Position[]
 ): Position | null {
-  // Simple forward movement - no pathfinding for now
+  // Se l'unità ha un target fisso, usa pathfinding verso di esso
+  if (unit.targetId && unit.state !== 'idle') {
+    // Trova posizione del target (implementazione semplificata)
+    // In una versione completa, questo dovrebbe essere gestito dal sistema stati
+    const targetPos = findTargetPosition(unit, enemyPositions);
+    if (targetPos) {
+      const nextMove = SimplePathfinder.findNextMove(unit.position, targetPos, grid);
+      if (nextMove && grid.isValidPosition(nextMove) && !grid.isOccupied(nextMove)) {
+        grid.moveUnit(unit.position, nextMove, unit);
+        unit.position = nextMove;
+        unit.lastMoveTick = currentTick;
+        return nextMove;
+      }
+    }
+  }
+
+  // Sistema di movimento intelligente verso il nemico più vicino
+  if (enemyPositions.length > 0) {
+    const nearestEnemy = SimplePathfinder.findNearestEnemy(unit.position, enemyPositions);
+    if (nearestEnemy) {
+      const nextMove = SimplePathfinder.findNextMove(unit.position, nearestEnemy, grid);
+      if (nextMove && grid.isValidPosition(nextMove) && !grid.isOccupied(nextMove)) {
+        grid.moveUnit(unit.position, nextMove, unit);
+        unit.position = nextMove;
+        unit.lastMoveTick = currentTick;
+        return nextMove;
+      }
+    }
+  }
+
+  // Fallback: movimento forward se nessun nemico o pathfinding fallisce
   const forwardPos = unit.teamId === 'teamA' 
     ? { x: unit.position.x + 1, y: unit.position.y }
     : { x: unit.position.x - 1, y: unit.position.y };
@@ -42,6 +73,15 @@ export function tryMoveUnit(
   }
 
   return null;
+}
+
+// Funzione helper per trovare posizione target (implementazione semplificata)
+function findTargetPosition(unit: UnitInstance, enemyPositions: Position[]): Position | null {
+  if (enemyPositions.length === 0) return null;
+  
+  // Per ora, ritorna il nemico più vicino
+  // In futuro, questo dovrebbe usare unit.targetId per trovare il target specifico
+  return SimplePathfinder.findNearestEnemy(unit.position, enemyPositions);
 }
 
 // Legacy functions for compatibility

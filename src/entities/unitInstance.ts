@@ -4,16 +4,24 @@ export interface Position {
   x: number;
   y: number;
 }
+export enum UnitState {
+  IDLE = 'idle',
+  ENGAGED = 'engaged',
+  FIGHTING = 'fighting'
+}
 
 export interface UnitInstance {
   id: string;
   templateId: string;
-  currentHp: number;
   position: Position;
   teamId: string;
+  currentHp: number;
   lastMoveTick: number;
   lastAttackTick: number;
   alive: boolean;
+  state: UnitState;
+  targetId: string | null;  // Target fisso finché possibile
+  lastTargetChangeTick: number;  // Quando il target è stato cambiato
 }
 
 export class UnitInstanceFactory {
@@ -33,7 +41,10 @@ export class UnitInstanceFactory {
       teamId,
       lastMoveTick: -1,
       lastAttackTick: -1,
-      alive: true
+      alive: true,
+      state: UnitState.IDLE,
+      targetId: null,
+      lastTargetChangeTick: -1
     };
   }
 

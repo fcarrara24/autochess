@@ -33,6 +33,15 @@ export interface SimulationConfig {
   };
 }
 
+
+// quando trovi gli obiettivi da attaccare ti concentri su quelli se sono nel range ( fighting )
+// se trovi un obiettivo nell diamante di movimento ( largo quanto la larghezza del campo )
+// sei in stato engaged e cerchi di avvicinarti fino a che non  puoi attaccarlo
+// se non trovi un obiettivo segui il pattern in stato di seek evitando i personaggi avversari 
+// due unità (alleate o avversarie non possono occupare lo stesso spazio )
+
+
+// per farlo cambia anche unit instance
 export class SimulationEngine {
   private templateManager: UnitTemplateManager;
   private config: SimulationConfig;
@@ -128,7 +137,16 @@ export class SimulationEngine {
     const units: UnitInstance[] = [];
     let unitIndex = 0;
 
-    for (const deckUnit of deck.units) {
+    // Ordinamento deterministico delle unità per consistenza
+    const sortedDeckUnits = [...deck.units].sort((a, b) => {
+      // Ordina per templateId poi per count
+      if (a.templateId !== b.templateId) {
+        return a.templateId.localeCompare(b.templateId);
+      }
+      return a.count - b.count;
+    });
+
+    for (const deckUnit of sortedDeckUnits) {
       const template = templates.get(deckUnit.templateId);
       if (!template) continue;
 
@@ -140,6 +158,12 @@ export class SimulationEngine {
       }
     }
 
+    // Ordinamento finale deterministico delle unità create
+    units.sort((a, b) => {
+      // Ordina per ID per consistenza assoluta
+      return a.id.localeCompare(b.id);
+    });
+
     return {
       id: teamId,
       name: `${teamId} - ${deck.name}`,
@@ -147,27 +171,38 @@ export class SimulationEngine {
     };
   }
 
+  // Sistema di posizionamento avanzato su più file per griglie più grandi
   private getStartPosition(unitIndex: number, teamId: string, totalUnits: number): Position {
     const gridHeight = this.config.gridSize.height;
     const gridWidth = this.config.gridSize.width;
     
-    // Calculate Y position to distribute units evenly
-    const yPositions: number[] = [];
-    const spacing = gridHeight / (totalUnits + 1);
+    // Calcola numero di file necessarie
+    const maxUnitsPerFile = gridHeight;
+    const numFiles = Math.ceil(totalUnits / maxUnitsPerFile);
     
-    for (let i = 1; i <= totalUnits; i++) {
-      const y = Math.floor(spacing * i);
-      // Ensure Y is within bounds (0 to gridHeight-1)
-      const clampedY = Math.max(0, Math.min(gridHeight - 1, y));
-      yPositions.push(clampedY);
-    }
+    // Determina file e posizione nella file
+    const fileIndex = Math.floor(unitIndex / maxUnitsPerFile);
+    const positionInFile = unitIndex % maxUnitsPerFile;
     
-    const y = yPositions[unitIndex] || Math.floor(gridHeight / 2);
-    
+    // Calcola posizione X basata sul team e numero di file
+    let x: number;
     if (teamId === 'teamA') {
-      return { x: 0, y };
+      // Team A: parte da sinistra verso centro
+      x = fileIndex;
     } else {
-      return { x: gridWidth - 1, y };
+      // Team B: parte da destra verso centro
+      x = gridWidth - 1 - fileIndex;
     }
+    
+    // Calcola posizione Y distribuita uniformemente nella file
+    const unitsInThisFile = Math.min(maxUnitsPerFile, totalUnits - (fileIndex * maxUnitsPerFile));
+    const spacing = gridHeight / (unitsInThisFile + 1);
+    const y = Math.floor(spacing * (positionInFile + 1));
+    
+    // Ensure coordinates sono within bounds
+    const clampedX = Math.max(0, Math.min(gridWidth - 1, x));
+    const clampedY = Math.max(0, Math.min(gridHeight - 1, y));
+    
+    return { x: clampedX, y: clampedY };
   }
 }
