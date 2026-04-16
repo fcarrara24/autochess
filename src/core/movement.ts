@@ -1,4 +1,4 @@
-import { UnitInstance, Position } from '../entities/unitInstance';
+import { UnitInstance, Position, UnitState } from '../entities/unitInstance';
 import { UnitTemplate } from '../entities/unitTemplate';
 import { Grid } from '../utils/grid';
 import { SimplePathfinder } from './pathfinding';
@@ -37,6 +37,29 @@ export function tryMoveUnit(
         unit.lastMoveTick = currentTick;
         return nextMove;
       }
+    }
+  }
+
+  // SEEK behavior: se non ci sono nemici, muovi verso il centro
+  if (enemyPositions.length === 0) {
+    // Imposta stato SEEK se non è già in SEEK
+    if (unit.state !== UnitState.SEEK) {
+      unit.state = UnitState.SEEK;
+      unit.targetId = null; // Resetta target quando in SEEK
+    }
+    
+    const centerPos = getCenterPosition(grid);
+    const nextMove = SimplePathfinder.findNextMove(unit.position, centerPos, grid);
+    if (nextMove && grid.isValidPosition(nextMove) && !grid.isOccupied(nextMove)) {
+      grid.moveUnit(unit.position, nextMove, unit);
+      unit.position = nextMove;
+      unit.lastMoveTick = currentTick;
+      return nextMove;
+    }
+  } else {
+    // Se ci sono nemici e siamo in SEEK, torna a IDLE per trovare target
+    if (unit.state === UnitState.SEEK) {
+      unit.state = UnitState.IDLE;
     }
   }
 
@@ -82,6 +105,16 @@ function findTargetPosition(unit: UnitInstance, enemyPositions: Position[]): Pos
   // Per ora, ritorna il nemico più vicino
   // In futuro, questo dovrebbe usare unit.targetId per trovare il target specifico
   return SimplePathfinder.findNearestEnemy(unit.position, enemyPositions);
+}
+
+// Funzione helper per calcolare posizione centro griglia (SEEK behavior)
+function getCenterPosition(grid: Grid): Position {
+  const width = grid.getWidth();
+  const height = grid.getHeight();
+  return {
+    x: Math.floor(width / 2),
+    y: Math.floor(height / 2)
+  };
 }
 
 // Legacy functions for compatibility

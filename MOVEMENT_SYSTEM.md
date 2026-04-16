@@ -10,6 +10,7 @@ Il sistema di movimento di Autochess è basato su un **motore deterministico** c
 
 ```
 IDLE     -> Unità in attesa, cerca bersagli
+SEEK     -> Unità senza bersagli, si muove verso centro
 ENGAGED  -> Unità ha target fisso, si muove verso di esso  
 FIGHTING -> Unità in range di attacco, interrompe movimento
 ```
@@ -21,6 +22,10 @@ FIGHTING -> Unità in range di attacco, interrompe movimento
   ^                                                      |
   |                                                      v
   +---------(nemico muore)-------[IDLE] <----(fuori range)----+
+  
+[IDLE] --(nessun nemico)--> [SEEK] --(nemico appare)--> [IDLE]
+  ^                                                      |
+  +------------------------(verso centro)-----------------+
 ```
 
 ## # Griglia di Movimento (12x6)
@@ -75,7 +80,28 @@ if (unit.targetId && unit.state !== 'idle') {
 }
 ```
 
-### # 2. Fase di Pathfinding
+### # 2. Fase di Target Selection
+
+```typescript
+// Se ci sono nemici disponibili
+if (enemyPositions.length > 0) {
+  // Trova nemico più vicino e imposta ENGAGED
+  const nearestEnemy = findNearestEnemy(unit.position, enemyPositions);
+  if (unit.state === UnitState.SEEK) {
+    unit.state = UnitState.IDLE; // Esci da SEEK
+  }
+  unit.targetId = nearestEnemy.id;
+  unit.state = UnitState.ENGAGED;
+} else {
+  // Nessun nemico: entra in SEEK verso centro
+  if (unit.state !== UnitState.SEEK) {
+    unit.state = UnitState.SEEK;
+    unit.targetId = null;
+  }
+}
+```
+
+### # 3. Fase di Pathfinding
 
 #### # Schema Priorità Direzionale (Deterministico)
 
@@ -100,7 +126,7 @@ function selectBestNeighbor(neighbors: Position[], target: Position): Position {
 }
 ```
 
-### # 3. Fase di Esecuzione Movimento
+### # 4. Fase di Esecuzione Movimento
 
 ```typescript
 // 1. Controlla cooldown movimento

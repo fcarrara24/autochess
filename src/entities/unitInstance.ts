@@ -6,6 +6,7 @@ export interface Position {
 }
 export enum UnitState {
   IDLE = 'idle',
+  SEEK = 'seek',
   ENGAGED = 'engaged',
   FIGHTING = 'fighting'
 }
