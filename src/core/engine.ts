@@ -171,33 +171,40 @@ export class SimulationEngine {
     };
   }
 
-  // Sistema di posizionamento avanzato su più file per griglie più grandi
+  // Sistema di posizionamento ottimizzato per incontro rapido
   private getStartPosition(unitIndex: number, teamId: string, totalUnits: number): Position {
     const gridHeight = this.config.gridSize.height;
     const gridWidth = this.config.gridSize.width;
     
-    // Calcola numero di file necessarie
-    const maxUnitsPerFile = gridHeight;
-    const numFiles = Math.ceil(totalUnits / maxUnitsPerFile);
+    // Per griglia 12x6: Team A parte da x=1-2, Team B da x=9-10
+    // Questo crea una "no man's land" centrale dove avviene l'incontro
     
-    // Determina file e posizione nella file
-    const fileIndex = Math.floor(unitIndex / maxUnitsPerFile);
-    const positionInFile = unitIndex % maxUnitsPerFile;
-    
-    // Calcola posizione X basata sul team e numero di file
     let x: number;
     if (teamId === 'teamA') {
-      // Team A: parte da sinistra verso centro
-      x = fileIndex;
+      // Team A: posizionato a sinistra-centro per movimento verso destra senza rimbalzi
+      if (totalUnits <= 3) {
+        x = 2; // Una sola colonna, ma non al bordo
+      } else if (totalUnits <= 6) {
+        x = unitIndex < 3 ? 2 : 3; // Due colonne centrali
+      } else {
+        x = 2 + Math.floor(unitIndex / 3); // Tre colonne partendo da centro
+      }
     } else {
-      // Team B: parte da destra verso centro
-      x = gridWidth - 1 - fileIndex;
+      // Team B: posizionato a destra-centro per movimento verso sinistra
+      if (totalUnits <= 3) {
+        x = gridWidth - 3; // Una sola colonna, ma non al bordo
+      } else if (totalUnits <= 6) {
+        x = unitIndex < 3 ? gridWidth - 3 : gridWidth - 4; // Due colonne centrali
+      } else {
+        x = (gridWidth - 3) - Math.floor(unitIndex / 3); // Tre colonne partendo da centro
+      }
     }
     
-    // Calcola posizione Y distribuita uniformemente nella file
-    const unitsInThisFile = Math.min(maxUnitsPerFile, totalUnits - (fileIndex * maxUnitsPerFile));
-    const spacing = gridHeight / (unitsInThisFile + 1);
-    const y = Math.floor(spacing * (positionInFile + 1));
+    // Calcola posizione Y distribuita uniformemente
+    const unitsPerColumn = Math.ceil(totalUnits / (totalUnits <= 3 ? 1 : totalUnits <= 6 ? 2 : 3));
+    const positionInColumn = unitIndex % unitsPerColumn;
+    const spacing = gridHeight / (unitsPerColumn + 1);
+    const y = Math.floor(spacing * (positionInColumn + 1));
     
     // Ensure coordinates sono within bounds
     const clampedX = Math.max(0, Math.min(gridWidth - 1, x));

@@ -4,7 +4,7 @@ const path = require('path');
 const WebSocket = require('ws');
 
 // Import del motore di simulazione
-const { SimulationEngine, SimulationConfig } = require('./dist/core/engine');
+const { SimulationEngine } = require('./dist/core/engine');
 const { UnitTemplateManager } = require('./dist/entities/unitTemplate');
 const { PREDEFINED_DECKS } = require('./dist/entities/deck');
 
@@ -15,6 +15,7 @@ class AutochessServer {
         this.simulator = null;
         this.httpServer = null;
         this.wsServer = null;
+        this.autoplayInterval = null;
     }
 
     start() {
@@ -121,6 +122,9 @@ class AutochessServer {
             const data = JSON.parse(message);
             
             switch(data.type) {
+                case 'initialize':
+                    this.initializeSimulator();
+                    break;
                 case 'startSimulation':
                     this.startSimulation(data.deckA, data.deckB);
                     break;
@@ -133,17 +137,8 @@ class AutochessServer {
                 case 'resetSimulation':
                     this.resetSimulation();
                     break;
-                case 'advancePhase':
-                    this.advancePhase();
-                    break;
-                case 'previousPhase':
-                    this.previousPhase();
-                    break;
                 case 'toggleAutoplay':
                     this.toggleAutoplay();
-                    break;
-                case 'populateSquad':
-                    this.populateSquad();
                     break;
                 default:
                     console.log('Unknown message type:', data.type);
@@ -153,93 +148,11 @@ class AutochessServer {
         }
     }
 
-    startSimulation(deckA = 'turtle', deckB = 'aggro') {
-        if (!this.simulator) {
-            this.initializeSimulator();
-        }
-        
-        const result = this.simulator.startSimulation(deckA, deckB);
-        this.broadcast({
-            type: 'simulationStarted',
-            result: result
-        });
-    }
-
-    pauseSimulation() {
-        if (this.simulator) {
-            this.simulator.pauseSimulation();
-            this.broadcast({
-                type: 'simulationPaused'
-            });
-        }
-    }
-
-    stepSimulation() {
-        if (this.simulator) {
-            const result = this.simulator.stepSimulation();
-            this.broadcast({
-                type: 'simulationStepped',
-                result: result
-            });
-        }
-    }
-
-    resetSimulation() {
-        if (this.simulator) {
-            this.simulator.resetSimulation();
-            this.broadcast({
-                type: 'simulationReset'
-            });
-        }
-    }
-
-    advancePhase() {
-        if (this.simulator) {
-            const result = this.simulator.advancePhase();
-            this.broadcast({
-                type: 'phaseAdvanced',
-                result: result
-            });
-        }
-    }
-
-    previousPhase() {
-        if (this.simulator) {
-            const result = this.simulator.previousPhase();
-            this.broadcast({
-                type: 'phasePrevious',
-                result: result
-            });
-        }
-    }
-
-    toggleAutoplay() {
-        if (this.simulator) {
-            const result = this.simulator.toggleAutoplay();
-            this.broadcast({
-                type: 'autoplayToggled',
-                result: result
-            });
-        }
-    }
-
-    populateSquad() {
-        if (!this.simulator) {
-            this.initializeSimulator();
-        }
-        
-        const result = this.simulator.populateSquad();
-        this.broadcast({
-            type: 'squadPopulated',
-            result: result
-        });
-    }
-
     initializeSimulator() {
         // Inizializza template manager
         const templateManager = new UnitTemplateManager();
         
-        // Setup templates (copiato da index.ts)
+        // Setup templates
         const templates = [
             {
                 id: 'tank',
@@ -288,7 +201,7 @@ class AutochessServer {
         // Crea configurazione simulazione
         const config = {
             maxTicks: 1000,
-            enableLogging: false,
+            enableLogging: true,
             gridSize: {
                 width: 12,
                 height: 6
@@ -298,7 +211,6 @@ class AutochessServer {
         // Crea motore di simulazione
         const engine = new SimulationEngine(templateManager, config);
 
-        // Crea wrapper per simulator (compatibilità con web interface)
         this.simulator = {
             engine: engine,
             templateManager: templateManager,
@@ -307,235 +219,168 @@ class AutochessServer {
             isRunning: false,
             isPaused: false,
             units: [],
-            moveHistory: [],
-            currentMoveIndex: -1,
-            autoplayEnabled: false,
-            autoplayInterval: null,
-
-            startSimulation: function(deckA, deckB) {
-                const teamA = this.engine.createTeamFromDeck(PREDEFINED_DECKS[deckA], 'teamA', this.templateManager);
-                const teamB = this.engine.createTeamFromDeck(PREDEFINED_DECKS[deckB], 'teamB', this.templateManager);
-                
-                this.units = [...teamA.units, ...teamB.units];
-                this.currentTick = 0;
-                this.isRunning = true;
-                this.isPaused = false;
-                this.moveHistory = [];
-                this.currentMoveIndex = -1;
-
-                return {
-                    success: true,
-                    units: this.units,
-                    tick: this.currentTick
-                };
-            },
-
-            pauseSimulation: function() {
-                this.isPaused = true;
-                return { paused: true };
-            },
-
-            stepSimulation: function() {
-                if (!this.isRunning || this.isPaused) return { error: 'Simulation not running' };
-                
-                // Implementazione step semplificata
-                this.currentTick++;
-                
-                return {
-                    success: true,
-                    tick: this.currentTick,
-                    units: this.units
-                };
-            },
-
-            resetSimulation: function() {
-                this.currentTick = 0;
-                this.isRunning = false;
-                this.isPaused = false;
-                this.units = [];
-                this.moveHistory = [];
-                this.currentMoveIndex = -1;
-                
-                return { reset: true };
-            },
-
-            advancePhase: function() {
-                if (!this.units || this.units.length === 0) {
-                    this.populateSquad();
-                    return { advanced: true, phase: 'movement' };
-                }
-
-                this.currentTick++;
-                
-                return {
-                    success: true,
-                    tick: this.currentTick,
-                    units: this.units,
-                    phase: 'movement'
-                };
-            },
-
-            previousPhase: function() {
-                if (this.currentTick > 0) {
-                    this.currentTick--;
-                    return { success: true, tick: this.currentTick };
-                }
-                return { error: 'No previous phase' };
-            },
-
-            toggleAutoplay: function() {
-                this.autoplayEnabled = !this.autoplayEnabled;
-                return { autoplay: this.autoplayEnabled };
-            },
-
-            populateSquad: function() {
-                // Popola con squadra predefinita
-                this.units = [
-                    // Team A (verde) - Squadra Turtle
-                    {
-                        id: 'teamA_tank_0',
-                        templateId: 'tank',
-                        position: { x: 0, y: 1 },
-                        teamId: 'teamA',
-                        currentHp: 150,
-                        lastMoveTick: -1,
-                        lastAttackTick: -1,
-                        alive: true,
-                        state: 'idle',
-                        targetId: null,
-                        lastTargetChangeTick: -1
-                    },
-                    {
-                        id: 'teamA_tank_1',
-                        templateId: 'tank',
-                        position: { x: 0, y: 2 },
-                        teamId: 'teamA',
-                        currentHp: 150,
-                        lastMoveTick: -1,
-                        lastAttackTick: -1,
-                        alive: true,
-                        state: 'idle',
-                        targetId: null,
-                        lastTargetChangeTick: -1
-                    },
-                    {
-                        id: 'teamA_tank_2',
-                        templateId: 'tank',
-                        position: { x: 0, y: 3 },
-                        teamId: 'teamA',
-                        currentHp: 150,
-                        lastMoveTick: -1,
-                        lastAttackTick: -1,
-                        alive: true,
-                        state: 'idle',
-                        targetId: null,
-                        lastTargetChangeTick: -1
-                    },
-                    {
-                        id: 'teamA_ranged_0',
-                        templateId: 'ranged',
-                        position: { x: 1, y: 1 },
-                        teamId: 'teamA',
-                        currentHp: 60,
-                        lastMoveTick: -1,
-                        lastAttackTick: -1,
-                        alive: true,
-                        state: 'idle',
-                        targetId: null,
-                        lastTargetChangeTick: -1
-                    },
-                    {
-                        id: 'teamA_ranged_1',
-                        templateId: 'ranged',
-                        position: { x: 1, y: 3 },
-                        teamId: 'teamA',
-                        currentHp: 60,
-                        lastMoveTick: -1,
-                        lastAttackTick: -1,
-                        alive: true,
-                        state: 'idle',
-                        targetId: null,
-                        lastTargetChangeTick: -1
-                    },
-                    
-                    // Team B (rosso) - Squadra Aggro
-                    {
-                        id: 'teamB_fast_melee_0',
-                        templateId: 'fast_melee',
-                        position: { x: 11, y: 0 },
-                        teamId: 'teamB',
-                        currentHp: 80,
-                        lastMoveTick: -1,
-                        lastAttackTick: -1,
-                        alive: true,
-                        state: 'idle',
-                        targetId: null,
-                        lastTargetChangeTick: -1
-                    },
-                    {
-                        id: 'teamB_fast_melee_1',
-                        templateId: 'fast_melee',
-                        position: { x: 11, y: 1 },
-                        teamId: 'teamB',
-                        currentHp: 80,
-                        lastMoveTick: -1,
-                        lastAttackTick: -1,
-                        alive: true,
-                        state: 'idle',
-                        targetId: null,
-                        lastTargetChangeTick: -1
-                    },
-                    {
-                        id: 'teamB_fast_melee_2',
-                        templateId: 'fast_melee',
-                        position: { x: 11, y: 2 },
-                        teamId: 'teamB',
-                        currentHp: 80,
-                        lastMoveTick: -1,
-                        lastAttackTick: -1,
-                        alive: true,
-                        state: 'idle',
-                        targetId: null,
-                        lastTargetChangeTick: -1
-                    },
-                    {
-                        id: 'teamB_fast_melee_3',
-                        templateId: 'fast_melee',
-                        position: { x: 11, y: 3 },
-                        teamId: 'teamB',
-                        currentHp: 80,
-                        lastMoveTick: -1,
-                        lastAttackTick: -1,
-                        alive: true,
-                        state: 'idle',
-                        targetId: null,
-                        lastTargetChangeTick: -1
-                    },
-                    {
-                        id: 'teamB_melee_0',
-                        templateId: 'melee',
-                        position: { x: 11, y: 4 },
-                        teamId: 'teamB',
-                        currentHp: 100,
-                        lastMoveTick: -1,
-                        lastAttackTick: -1,
-                        alive: true,
-                        state: 'idle',
-                        targetId: null,
-                        lastTargetChangeTick: -1
-                    }
-                ];
-
-                this.isRunning = true;
-                this.currentTick = 0;
-
-                return {
-                    success: true,
-                    units: this.units,
-                    message: 'Griglia popolata con squadra predefinita!'
-                };
-            }
+            grid: null,
+            autoplayEnabled: false
         };
+
+        this.broadcast({
+            type: 'simulatorInitialized',
+            decks: Object.keys(PREDEFINED_DECKS)
+        });
+    }
+
+    startSimulation(deckA, deckB) {
+        if (!this.simulator) {
+            this.initializeSimulator();
+        }
+
+        try {
+            const teamA = this.simulator.engine.createTeamFromDeck(PREDEFINED_DECKS[deckA], 'teamA', this.simulator.templateManager);
+            const teamB = this.simulator.engine.createTeamFromDeck(PREDEFINED_DECKS[deckB], 'teamB', this.simulator.templateManager);
+            
+            this.simulator.units = [...teamA.units, ...teamB.units];
+            this.simulator.currentTick = 0;
+            this.simulator.isRunning = true;
+            this.simulator.isPaused = false;
+
+            // Inizializza griglia
+            this.simulator.grid = new (require('./dist/utils/grid')).Grid(
+                this.simulator.config.gridSize.width, 
+                this.simulator.config.gridSize.height
+            );
+
+            // Posiziona unità sulla griglia
+            for (const unit of this.simulator.units) {
+                if (unit.alive) {
+                    this.simulator.grid.occupy(unit.position, unit);
+                }
+            }
+
+            this.broadcast({
+                type: 'simulationStarted',
+                units: this.simulator.units,
+                tick: this.simulator.currentTick,
+                deckA: deckA,
+                deckB: deckB
+            });
+        } catch (error) {
+            console.error('Error starting simulation:', error);
+            this.broadcast({
+                type: 'error',
+                message: 'Failed to start simulation: ' + error.message
+            });
+        }
+    }
+
+    pauseSimulation() {
+        if (this.simulator) {
+            this.simulator.isPaused = !this.simulator.isPaused;
+            this.broadcast({
+                type: 'simulationPaused',
+                paused: this.simulator.isPaused
+            });
+        }
+    }
+
+    stepSimulation() {
+        if (!this.simulator || !this.simulator.isRunning || this.simulator.isPaused) return;
+
+        try {
+            const { processTick } = require('./dist/core/tick');
+            
+            // Crea mappa templates
+            const templates = new Map();
+            for (const template of this.simulator.templateManager.getAll()) {
+                templates.set(template.id, template);
+            }
+            
+            // Processa tick
+            const tickLog = processTick(this.simulator.currentTick, this.simulator.units, templates, this.simulator.grid);
+            
+            // Aggiorna posizione unità basata sui movimenti
+            for (const move of tickLog.moves) {
+                const unit = this.simulator.units.find(u => u.id === move.unitId);
+                if (unit) {
+                    this.simulator.grid.moveUnit(move.from, move.to, unit);
+                    unit.position = { ...move.to };
+                    unit.lastMoveTick = this.simulator.currentTick;
+                }
+            }
+            
+            // Applica danni
+            for (const attack of tickLog.attacks) {
+                const target = this.simulator.units.find(u => u.id === attack.targetId);
+                if (target && target.alive) {
+                    target.currentHp -= attack.damage;
+                    if (target.currentHp <= 0) {
+                        target.currentHp = 0;
+                        target.alive = false;
+                        this.simulator.grid.vacate(target.position);
+                    }
+                }
+            }
+            
+            this.simulator.currentTick++;
+            
+            this.broadcast({
+                type: 'simulationStepped',
+                tick: this.simulator.currentTick,
+                units: this.simulator.units,
+                moves: tickLog.moves,
+                attacks: tickLog.attacks,
+                deaths: tickLog.deaths
+            });
+        } catch (error) {
+            console.error('Error stepping simulation:', error);
+            this.broadcast({
+                type: 'error',
+                message: 'Failed to step simulation: ' + error.message
+            });
+        }
+    }
+
+    resetSimulation() {
+        if (this.simulator) {
+            if (this.autoplayInterval) {
+                clearInterval(this.autoplayInterval);
+                this.autoplayInterval = null;
+            }
+            
+            this.simulator.currentTick = 0;
+            this.simulator.isRunning = false;
+            this.simulator.isPaused = false;
+            this.simulator.units = [];
+            this.simulator.grid = null;
+            this.simulator.autoplayEnabled = false;
+
+            this.broadcast({
+                type: 'simulationReset'
+            });
+        }
+    }
+
+    toggleAutoplay() {
+        if (!this.simulator) return;
+
+        this.simulator.autoplayEnabled = !this.simulator.autoplayEnabled;
+
+        if (this.simulator.autoplayEnabled) {
+            this.autoplayInterval = setInterval(() => {
+                if (this.simulator && this.simulator.isRunning && !this.simulator.isPaused) {
+                    this.stepSimulation();
+                }
+            }, 500);
+        } else {
+            if (this.autoplayInterval) {
+                clearInterval(this.autoplayInterval);
+                this.autoplayInterval = null;
+            }
+        }
+
+        this.broadcast({
+            type: 'autoplayToggled',
+            autoplay: this.simulator.autoplayEnabled
+        });
     }
 
     broadcast(message) {

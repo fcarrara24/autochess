@@ -16,6 +16,7 @@ export class SimplePathfinder {
     start: Position,
     target: Position,
     grid: Grid,
+    teamId: string, // ID del team per distinguere alleati da nemici
     maxDistance: number = 8
   ): Position[] | null {
     // Simple greedy pathfinding - not full A* but much better than random movement
@@ -33,7 +34,7 @@ export class SimplePathfinder {
       }
 
       // Get all valid neighbors
-      const neighbors = this.getValidNeighbors(current, grid);
+      const neighbors = this.getValidNeighbors(current, grid, teamId);
       if (neighbors.length === 0) break;
 
       // Choose neighbor closest to target (greedy approach)
@@ -53,15 +54,16 @@ export class SimplePathfinder {
   static findNextMove(
     start: Position,
     target: Position,
-    grid: Grid
+    grid: Grid,
+    teamId: string // ID del team per distinguere alleati da nemici
   ): Position | null {
-    const neighbors = this.getValidNeighbors(start, grid);
+    const neighbors = this.getValidNeighbors(start, grid, teamId);
     if (neighbors.length === 0) return null;
 
     return this.selectBestNeighbor(neighbors, target);
   }
 
-  private static getValidNeighbors(pos: Position, grid: Grid): Position[] {
+  private static getValidNeighbors(pos: Position, grid: Grid, teamId: string): Position[] {
     const neighbors: Position[] = [];
     const directions = [
       { x: 0, y: 1 },   // right
@@ -72,8 +74,12 @@ export class SimplePathfinder {
 
     for (const dir of directions) {
       const newPos = { x: pos.x + dir.x, y: pos.y + dir.y };
-      if (grid.isValidPosition(newPos) && !grid.isOccupied(newPos)) {
-        neighbors.push(newPos);
+      if (grid.isValidPosition(newPos)) {
+        const occupyingUnit = grid.getUnitAt(newPos);
+        // Permetti movimento se la posizione è vuota O occupata da unità alleata
+        if (!occupyingUnit || occupyingUnit.teamId === teamId) {
+          neighbors.push(newPos);
+        }
       }
     }
 
@@ -95,11 +101,13 @@ export class SimplePathfinder {
     const dy = Math.sign(target.y - neighbors[0].y);
     
     // Mappa direzioni a priorità
+    // Team A: deve andare a destra (x crescente) - PRIORITÀ MASSIMA
+    // Team B: deve andare a sinistra (x decrescente) - PRIORITÀ MASSIMA
     const directionPriority: Record<string, number> = {
-      '0,1': 1,   // avanti
-      '-1,0': 2,  // sinistra
-      '1,0': 3,   // destra
-      '0,-1': 4,  // indietro
+      '1,0': 1,   // destra (x crescente) - MOVIMENTO PRINCIPALE
+      '0,1': 2,   // avanti (y crescente)
+      '0,-1': 3,  // indietro (y decrescente)
+      '-1,0': 4,  // sinistra (x decrescente)
     };
     
     // Ordina vicini per distanza, poi per priorità direzionale deterministica

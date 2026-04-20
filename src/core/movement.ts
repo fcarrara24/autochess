@@ -16,7 +16,7 @@ export function tryMoveUnit(
     // In una versione completa, questo dovrebbe essere gestito dal sistema stati
     const targetPos = findTargetPosition(unit, enemyPositions);
     if (targetPos) {
-      const nextMove = SimplePathfinder.findNextMove(unit.position, targetPos, grid);
+      const nextMove = SimplePathfinder.findNextMove(unit.position, targetPos, grid, unit.teamId);
       if (nextMove && grid.isValidPosition(nextMove) && !grid.isOccupied(nextMove)) {
         grid.moveUnit(unit.position, nextMove, unit);
         unit.position = nextMove;
@@ -30,7 +30,7 @@ export function tryMoveUnit(
   if (enemyPositions.length > 0) {
     const nearestEnemy = SimplePathfinder.findNearestEnemy(unit.position, enemyPositions);
     if (nearestEnemy) {
-      const nextMove = SimplePathfinder.findNextMove(unit.position, nearestEnemy, grid);
+      const nextMove = SimplePathfinder.findNextMove(unit.position, nearestEnemy, grid, unit.teamId);
       if (nextMove && grid.isValidPosition(nextMove) && !grid.isOccupied(nextMove)) {
         grid.moveUnit(unit.position, nextMove, unit);
         unit.position = nextMove;
@@ -49,13 +49,30 @@ export function tryMoveUnit(
     }
     
     const centerPos = getCenterPosition(grid);
-    const nextMove = SimplePathfinder.findNextMove(unit.position, centerPos, grid);
-    if (nextMove && grid.isValidPosition(nextMove) && !grid.isOccupied(nextMove)) {
-      grid.moveUnit(unit.position, nextMove, unit);
-      unit.position = nextMove;
-      unit.lastMoveTick = currentTick;
-      return nextMove;
+    
+    // Controlla se l'unità ha già raggiunto il centro (area 3x3 intorno al centro)
+    const distanceToCenter = Math.abs(unit.position.x - centerPos.x) + Math.abs(unit.position.y - centerPos.y);
+    if (distanceToCenter <= 2) {
+      // Se vicino al centro, smetti di muoverti in SEEK
+      return null;
     }
+    
+    const nextMove = SimplePathfinder.findNextMove(unit.position, centerPos, grid, unit.teamId);
+    if (nextMove && grid.isValidPosition(nextMove) && !grid.isOccupied(nextMove)) {
+      // Verifica che il movimento sia effettivamente verso il centro
+      const currentDistance = Math.abs(unit.position.x - centerPos.x) + Math.abs(unit.position.y - centerPos.y);
+      const newDistance = Math.abs(nextMove.x - centerPos.x) + Math.abs(nextMove.y - centerPos.y);
+      
+      if (newDistance < currentDistance) {
+        grid.moveUnit(unit.position, nextMove, unit);
+        unit.position = nextMove;
+        unit.lastMoveTick = currentTick;
+        return nextMove;
+      }
+    }
+    
+    // Se non può muoversi verso il centro, rimani fermo in SEEK
+    return null;
   } else {
     // Se ci sono nemici e siamo in SEEK, torna a IDLE per trovare target
     if (unit.state === UnitState.SEEK) {
@@ -64,9 +81,21 @@ export function tryMoveUnit(
   }
 
   // Fallback: movimento forward se nessun nemico o pathfinding fallisce
-  const forwardPos = unit.teamId === 'teamA' 
-    ? { x: unit.position.x + 1, y: unit.position.y }
-    : { x: unit.position.x - 1, y: unit.position.y };
+  let forwardPos: Position;
+  
+  if (unit.teamId === 'teamA') {
+    // Team A: muovi sempre verso destra, ma evita di tornare indietro se al bordo
+    if (unit.position.x === 0) {
+      // Se al bordo sinistro, forza movimento verso destra
+      forwardPos = { x: unit.position.x + 1, y: unit.position.y };
+    } else {
+      // Altrimenti muovi verso destra (verso il nemico)
+      forwardPos = { x: unit.position.x + 1, y: unit.position.y };
+    }
+  } else {
+    // Team B: muovi sempre verso sinistra
+    forwardPos = { x: unit.position.x - 1, y: unit.position.y };
+  }
   
   if (grid.isValidPosition(forwardPos) && !grid.isOccupied(forwardPos)) {
     grid.moveUnit(unit.position, forwardPos, unit);
