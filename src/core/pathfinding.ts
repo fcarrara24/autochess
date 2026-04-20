@@ -66,10 +66,10 @@ export class SimplePathfinder {
   private static getValidNeighbors(pos: Position, grid: Grid, teamId: string): Position[] {
     const neighbors: Position[] = [];
     const directions = [
-      { x: 0, y: 1 },   // right
-      { x: 0, y: -1 },  // left
-      { x: 1, y: 0 },   // down (forward for team A)
-      { x: -1, y: 0 },  // up (backward for team A)
+      { x: 0, y: 1 },   // up
+      { x: 0, y: -1 },  // down
+      { x: 1, y: 0 },   // right (forward for team A)
+      { x: -1, y: 0 },  // left (backward for team A)
     ];
 
     for (const dir of directions) {
@@ -87,56 +87,95 @@ export class SimplePathfinder {
   }
 
   private static selectBestNeighbor(neighbors: Position[], target: Position): Position {
-    // Schema priorità deterministico:
-    /*
-      |2|1|3
-      |4|u|5
-      |7|6|8
-    */
-    // u rappresenta l'unità, in ordine viene dato priorità alle truppe "avanti"  
-    // centrali rispetto a quelle laterali, sinistra rispetto a destra
+    // Nuovo sistema di pathfinding con priorità euclidea/pitagorica
+    // 1. Priorità assoluta: distanza euclidea minima dal target
+    // 2. Premi avanzare verso il nemico rispetto al retrocedere
+    // 3. Premi sinistra rispetto a destra
     
-    // Calcola direzione verso target
-    const dx = Math.sign(target.x - neighbors[0].x);
-    const dy = Math.sign(target.y - neighbors[0].y);
+    // Calcola il centro della griglia come riferimento per direzione
+    const gridCenter = { x: 6, y: 3 }; // Per griglia 12x6
     
-    // Mappa direzioni a priorità
-    // Team A: deve andare a destra (x crescente) - PRIORITÀ MASSIMA
-    // Team B: deve andare a sinistra (x decrescente) - PRIORITÀ MASSIMA
-    const directionPriority: Record<string, number> = {
-      '1,0': 1,   // destra (x crescente) - MOVIMENTO PRINCIPALE
-      '0,1': 2,   // avanti (y crescente)
-      '0,-1': 3,  // indietro (y decrescente)
-      '-1,0': 4,  // sinistra (x decrescente)
-    };
-    
-    // Ordina vicini per distanza, poi per priorità direzionale deterministica
     const sortedNeighbors = [...neighbors].sort((a, b) => {
-      const distA = this.getDistance(a, target);
-      const distB = this.getDistance(b, target);
+      // 1. Priorità: distanza euclidea (pitagorica) dal target
+      const euclideanDistA = this.getEuclideanDistance(a, target);
+      const euclideanDistB = this.getEuclideanDistance(b, target);
       
-      if (distA !== distB) {
-        return distA - distB; // Priorità distanza minima
+      if (Math.abs(euclideanDistA - euclideanDistB) > 0.01) {
+        return euclideanDistA - euclideanDistB;
       }
       
-      // A parità di distanza, usa schema priorità deterministico
-      const dirA = `${Math.sign(a.x - neighbors[0].x)},${Math.sign(a.y - neighbors[0].y)}`;
-      const dirB = `${Math.sign(b.x - neighbors[0].x)},${Math.sign(b.y - neighbors[0].y)}`;
+      // 2. Premi avanzare verso il nemico rispetto al retrocedere
+      // Calcola se il movimento avvicina o allontana dal target
+      const advanceScoreA = this.calculateAdvanceScore(a, target);
+      const advanceScoreB = this.calculateAdvanceScore(b, target);
       
-      const priorityA = directionPriority[dirA] || 99;
-      const priorityB = directionPriority[dirB] || 99;
-      
-      if (priorityA !== priorityB) {
-        return priorityA - priorityB;
+      if (advanceScoreA !== advanceScoreB) {
+        return advanceScoreB - advanceScoreA; // Maggiore score = migliore (avanzare)
       }
       
-      // Se ancora pari, usa ordinamento consistente basato su coordinate
+      // 3. Premi sinistra rispetto a destra (per movimento tattico)
+      const leftRightScoreA = this.calculateLeftRightScore(a, target);
+      const leftRightScoreB = this.calculateLeftRightScore(b, target);
+      
+      if (leftRightScoreA !== leftRightScoreB) {
+        return leftRightScoreB - leftRightScoreA; // Maggiore score = migliore (sinistra)
+      }
+      
+      // 4. Fallback: distanza Manhattan per consistenza
+      const manhattanDistA = this.getDistance(a, target);
+      const manhattanDistB = this.getDistance(b, target);
+      
+      if (manhattanDistA !== manhattanDistB) {
+        return manhattanDistA - manhattanDistB;
+      }
+      
+      // 5. Ultimo fallback: ordinamento deterministico
       const coordA = `${a.x},${a.y}`;
       const coordB = `${b.x},${b.y}`;
       return coordA.localeCompare(coordB);
     });
 
     return sortedNeighbors[0];
+  }
+
+  // Calcola distanza euclidea (pitagorica)
+  private static getEuclideanDistance(pos1: Position, pos2: Position): number {
+    const dx = pos1.x - pos2.x;
+    const dy = pos1.y - pos2.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // Calcola score per avanzamento vs retrocessione
+  private static calculateAdvanceScore(pos: Position, target: Position): number {
+    // Direzione verso il target
+    const dx = target.x - pos.x;
+    const dy = target.y - pos.y;
+    
+    let score = 0;
+    
+    // Premi movimento verso il target (avanzamento)
+    if (dx > 0) score += 2; // Avanzare a destra
+    if (dx < 0) score -= 1; // Retrocedere a sinistra (penalità)
+    if (dy > 0) score += 1; // Avanzare in basso
+    if (dy < 0) score -= 0.5; // Retrocedere in alto (penalità minore)
+    
+    return score;
+  }
+
+  // Calcola score per preferenza sinistra vs destra
+  private static calculateLeftRightScore(pos: Position, target: Position): number {
+    // Movimento laterale tattico: preferisci sinistra per aggiramento
+    const dx = target.x - pos.x;
+    
+    // Se il target è a destra, premi leggermente movimento verso sinistra (aggiramento)
+    // Se il target è a sinistra, premi leggermente movimento verso destra (aggiramento)
+    if (dx > 0) {
+      // Target a destra: preferisci movimento verso sinistra per aggiramento
+      return pos.x < target.x ? 0.5 : -0.2;
+    } else {
+      // Target a sinistra: preferisci movimento verso destra per aggiramento  
+      return pos.x > target.x ? 0.5 : -0.2;
+    }
   }
 
   static getDistance(pos1: Position, pos2: Position): number {
