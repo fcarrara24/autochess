@@ -176,40 +176,35 @@ export class SimulationEngine {
     const gridHeight = this.config.gridSize.height;
     const gridWidth = this.config.gridSize.width;
     
-    // Per griglia 12x6: Team A parte da x=1-2, Team B da x=9-10
+    // Per griglia 12x6: Team A parte da x=1-3, Team B da x=8-10
     // Questo crea una "no man's land" centrale dove avviene l'incontro
     
-    let x: number;
-    if (teamId === 'teamA') {
-      // Team A: posizionato a sinistra-centro per movimento verso destra senza rimbalzi
-      if (totalUnits <= 3) {
-        x = 2; // Una sola colonna, ma non al bordo
-      } else if (totalUnits <= 6) {
-        x = unitIndex < 3 ? 2 : 3; // Due colonne centrali
-      } else {
-        x = 2 + Math.floor(unitIndex / 3); // Tre colonne partendo da centro
-      }
-    } else {
-      // Team B: posizionato a destra-centro per movimento verso sinistra
-      if (totalUnits <= 3) {
-        x = gridWidth - 3; // Una sola colonna, ma non al bordo
-      } else if (totalUnits <= 6) {
-        x = unitIndex < 3 ? gridWidth - 3 : gridWidth - 4; // Due colonne centrali
-      } else {
-        x = (gridWidth - 3) - Math.floor(unitIndex / 3); // Tre colonne partendo da centro
+    // Calcola le posizioni disponibili per il team
+    const availablePositions: Position[] = [];
+    const startColumn = teamId === 'teamA' ? 1 : gridWidth - 4;
+    const endColumn = teamId === 'teamA' ? 3 : gridWidth - 2;
+    
+    // Genera tutte le posizioni possibili nell'area del team
+    for (let x = startColumn; x <= endColumn; x++) {
+      for (let y = 0; y < gridHeight; y++) {
+        availablePositions.push({ x, y });
       }
     }
     
-    // Calcola posizione Y distribuita uniformemente
-    const unitsPerColumn = Math.ceil(totalUnits / (totalUnits <= 3 ? 1 : totalUnits <= 6 ? 2 : 3));
-    const positionInColumn = unitIndex % unitsPerColumn;
-    const spacing = gridHeight / (unitsPerColumn + 1);
-    const y = Math.floor(spacing * (positionInColumn + 1));
+    // Ordina le posizioni per distribuire le unità uniformemente
+    // Priorità: posizioni centrali prima, poi bordi
+    availablePositions.sort((a, b) => {
+      // Distanza dal centro della griglia
+      const centerDistanceA = Math.abs(a.x - gridWidth / 2) + Math.abs(a.y - gridHeight / 2);
+      const centerDistanceB = Math.abs(b.x - gridWidth / 2) + Math.abs(b.y - gridHeight / 2);
+      return centerDistanceA - centerDistanceB;
+    });
     
-    // Ensure coordinates sono within bounds
-    const clampedX = Math.max(0, Math.min(gridWidth - 1, x));
-    const clampedY = Math.max(0, Math.min(gridHeight - 1, y));
+    // Seleziona la posizione basata sull'indice dell'unità
+    // Questo garantisce che ogni unità abbia una posizione unica
+    const positionIndex = unitIndex % availablePositions.length;
+    const selectedPosition = availablePositions[positionIndex];
     
-    return { x: clampedX, y: clampedY };
+    return selectedPosition;
   }
 }
