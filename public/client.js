@@ -40,6 +40,11 @@ class AutoBattlerClient {
         this.socket.on('gameState', (message) => {
             this.gameState = message.data;
             
+            // Check for round winner
+            if (this.gameState.roundWinner) {
+                this.showVictoryPopup(this.gameState.roundWinner);
+            }
+            
             // Always refresh in battle phase
             if (this.gameState.phase === 'BATTLE') {
                 this.render();
@@ -228,12 +233,24 @@ class AutoBattlerClient {
             this.ctx.stroke();
         }
 
-        // Draw player areas
-        this.ctx.fillStyle = 'rgba(33, 150, 243, 0.1)'; // Player A - blue
-        this.ctx.fillRect(0, 0, 4 * this.tileSize.width, this.canvas.height);
-
-        this.ctx.fillStyle = 'rgba(244, 67, 54, 0.1)'; // Player B - red
-        this.ctx.fillRect(4 * this.tileSize.width, 0, 4 * this.tileSize.width, this.canvas.height);
+        // Draw player areas with proper coloring based on current player
+        if (this.playerSlot === 'PLAYER_A') {
+            // Player A's area (left side) - normal color
+            this.ctx.fillStyle = 'rgba(33, 150, 243, 0.1)'; // Blue
+            this.ctx.fillRect(0, 0, 4 * this.tileSize.width, this.canvas.height);
+            
+            // Player B's area (right side) - grayed out
+            this.ctx.fillStyle = 'rgba(128, 128, 128, 0.2)'; // Gray
+            this.ctx.fillRect(4 * this.tileSize.width, 0, 4 * this.tileSize.width, this.canvas.height);
+        } else {
+            // Player B's area (right side) - normal color
+            this.ctx.fillStyle = 'rgba(244, 67, 54, 0.1)'; // Red
+            this.ctx.fillRect(4 * this.tileSize.width, 0, 4 * this.tileSize.width, this.canvas.height);
+            
+            // Player A's area (left side) - grayed out
+            this.ctx.fillStyle = 'rgba(128, 128, 128, 0.2)'; // Gray
+            this.ctx.fillRect(0, 0, 4 * this.tileSize.width, this.canvas.height);
+        }
 
         // Draw area divider
         this.ctx.strokeStyle = '#666';
@@ -407,6 +424,25 @@ class AutoBattlerClient {
         setTimeout(() => {
             popup.style.display = 'none';
         }, duration);
+    }
+    
+    showVictoryPopup(winner) {
+        const popup = document.getElementById('victoryPopup');
+        
+        if (winner === this.playerSlot) {
+            popup.textContent = 'Hai vinto!';
+            popup.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+        } else {
+            popup.textContent = 'Hai perso!';
+            popup.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+        }
+        
+        popup.style.display = 'block';
+        
+        // Hide after 5 seconds
+        setTimeout(() => {
+            popup.style.display = 'none';
+        }, 5000);
     }
 }
 

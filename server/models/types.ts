@@ -63,6 +63,7 @@ export interface GameState {
   battleTimeLimit: number; // 40 seconds
   tickCount: number;
   isPaused: boolean;
+  roundWinner?: PlayerSlot;
   winner?: PlayerSlot;
 }
 

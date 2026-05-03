@@ -99,6 +99,30 @@
             max-width: 300px;
         }
 
+        #victoryPopup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 15px;
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+            z-index: 2000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            animation: victoryPulse 0.5s ease-in-out;
+        }
+
+        @keyframes victoryPulse {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
         #connectionStatus {
             position: fixed;
             top: 20px;
@@ -152,6 +176,7 @@
 <body>
     <div id="connectionStatus">Connecting...</div>
     <div id="errorPopup"></div>
+    <div id="victoryPopup">Hai vinto!</div>
     
     <div id="gameContainer">
         <div id="unitPanel">

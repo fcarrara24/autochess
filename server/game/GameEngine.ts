@@ -331,14 +331,28 @@ export class GameEngine {
     const playerAUnits = this.getAllAliveUnits().filter(u => u.owner === PlayerSlot.PLAYER_A);
     const playerBUnits = this.getAllAliveUnits().filter(u => u.owner === PlayerSlot.PLAYER_B);
 
-    // Award points
+    let roundWinner: PlayerSlot | undefined = undefined;
+    
+    // Award points and determine round winner
     if (playerAUnits.length > 0 && playerBUnits.length === 0) {
       const playerA = this.gameState.players.find(p => p.slot === PlayerSlot.PLAYER_A);
-      if (playerA) playerA.incrementScore();
+      if (playerA) {
+        playerA.incrementScore();
+        roundWinner = PlayerSlot.PLAYER_A;
+      }
     } else if (playerBUnits.length > 0 && playerAUnits.length === 0) {
       const playerB = this.gameState.players.find(p => p.slot === PlayerSlot.PLAYER_B);
-      if (playerB) playerB.incrementScore();
+      if (playerB) {
+        playerB.incrementScore();
+        roundWinner = PlayerSlot.PLAYER_B;
+      }
     }
+    
+    // Set round winner in game state
+    this.gameState.roundWinner = roundWinner;
+    
+    // Notify listeners of round end
+    this.notifyUpdate();
 
     // Check for match winner
     const playerA = this.gameState.players.find(p => p.slot === PlayerSlot.PLAYER_A);
@@ -346,15 +360,20 @@ export class GameEngine {
 
     if (playerA && playerA.score >= 3) {
       this.gameState.winner = PlayerSlot.PLAYER_A;
-      return;
-    }
-    if (playerB && playerB.score >= 3) {
-      this.gameState.winner = PlayerSlot.PLAYER_B;
+      this.notifyUpdate();
       return;
     }
 
-    // Start new round
-    this.startNewRound();
+    if (playerB && playerB.score >= 3) {
+      this.gameState.winner = PlayerSlot.PLAYER_B;
+      this.notifyUpdate();
+      return;
+    }
+
+    // Start next round after 5 seconds
+    setTimeout(() => {
+      this.startNewRound();
+    }, 5000);
   }
 
   private startNewRound(): void {
