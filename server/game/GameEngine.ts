@@ -5,9 +5,9 @@ export class GameEngine {
   private gameState: GameState;
   private gameLoopInterval: NodeJS.Timeout | null = null;
   private updateCallback?: () => void;
-  private readonly TICK_RATE = 200; // 5 ticks per second
-  private readonly PLACEMENT_TIME = 30000; // 30 seconds
-  private readonly BATTLE_TIME = 40000; // 40 seconds
+  private readonly TICK_RATE = 500; // 2 ticks per second (slower)
+  private readonly PLACEMENT_TIME = 20000; // 20 seconds
+  private readonly BATTLE_TIME = 10000; // 10 seconds
 
   constructor() {
     this.gameState = this.initializeGame();
@@ -195,13 +195,20 @@ export class GameEngine {
       UnitController.updateUnitState(unit, this.gameState.grid, allUnits);
       
       if (unit.state === 'SEEK' || unit.state === 'ENGAGED') {
+        const oldPos = { ...unit.position };
         this.moveUnit(unit);
+        
+        // Log if unit actually moved
+        if (oldPos.x !== unit.position.x || oldPos.y !== unit.position.y) {
+          console.log(`Unit ${unit.owner} ${unit.type} moved from (${oldPos.x},${oldPos.y}) to (${unit.position.x},${unit.position.y})`);
+        }
       }
     }
   }
 
   private moveUnit(unit: import('../models/types').Unit): void {
     const validMoves = UnitController.getValidMovePositions(unit, this.gameState.grid);
+    console.log(`Unit ${unit.owner} ${unit.type} at (${unit.position.x},${unit.position.y}) has ${validMoves.length} valid moves:`, validMoves);
     
     if (validMoves.length === 0) {
       return;
@@ -216,6 +223,8 @@ export class GameEngine {
         pos.x === unit.position.x + forwardDirection
       );
       
+      console.log(`SEEK mode - forward direction: ${forwardDirection}, forward positions:`, forwardPositions);
+      
       if (forwardPositions.length > 0) {
         targetPosition = forwardPositions[0];
       } else {
@@ -223,6 +232,7 @@ export class GameEngine {
         const diagonalPositions = validMoves.filter(pos => 
           pos.x === unit.position.x + forwardDirection
         );
+        console.log(`Trying diagonal positions:`, diagonalPositions);
         if (diagonalPositions.length > 0) {
           targetPosition = diagonalPositions[0];
         }
@@ -230,13 +240,18 @@ export class GameEngine {
     } else if (unit.state === 'ENGAGED') {
       // Move diagonally toward target enemy
       const target = unit.targetId ? this.getAllAliveUnits().find(u => u.id === unit.targetId) : null;
+      console.log(`ENGAGED mode - target:`, target ? `at (${target.position.x},${target.position.y})` : 'not found');
       if (target) {
         const dx = Math.sign(target.position.x - unit.position.x);
         const dy = Math.sign(target.position.y - unit.position.y);
         
+        console.log(`Direction to target: dx=${dx}, dy=${dy}`);
+        
         const diagonalPos = validMoves.find(pos => 
           pos.x === unit.position.x + dx && pos.y === unit.position.y + dy
         );
+        
+        console.log(`Diagonal position found:`, diagonalPos);
         
         if (diagonalPos) {
           targetPosition = diagonalPos;
@@ -245,7 +260,10 @@ export class GameEngine {
     }
 
     if (targetPosition) {
+      console.log(`Moving unit to (${targetPosition.x},${targetPosition.y})`);
       this.gameState.grid.moveUnit(unit.position, targetPosition);
+    } else {
+      console.log(`No valid target position found for unit ${unit.owner} ${unit.type}`);
     }
   }
 
@@ -258,19 +276,32 @@ export class GameEngine {
     
     for (const unit of allUnits) {
       UnitController.updateUnitState(unit, this.gameState.grid, allUnits);
+      console.log(`Unit ${unit.owner} ${unit.type} at (${unit.position.x},${unit.position.y}) state: ${unit.state}, target: ${unit.targetId}`);
       
       if (unit.state === 'ATTACK') {
         const target = unit.targetId ? allUnits.find(u => u.id === unit.targetId) : null;
-        if (target && this.gameState.grid.isInRange(unit.position, target.position, unit.stats.range)) {
-          attacks.push({ attacker: unit, defender: target, damage: unit.stats.damage });
-          console.log(`Attack: ${unit.owner} ${unit.type} -> ${target.owner} ${target.type} for ${unit.stats.damage} damage`);
+        if (target) {
+          const distance = this.gameState.grid.getManhattanDistance(unit.position, target.position);
+          const inRange = this.gameState.grid.isInRange(unit.position, target.position, unit.stats.range);
+          console.log(`Target found at (${target.position.x},${target.position.y}), distance: ${distance}, range: ${unit.stats.range}, inRange: ${inRange}`);
+          
+          if (inRange) {
+            attacks.push({ attacker: unit, defender: target, damage: unit.stats.damage });
+            console.log(`Attack: ${unit.owner} ${unit.type} -> ${target.owner} ${target.type} for ${unit.stats.damage} damage`);
+          }
+        } else {
+          console.log(`No target found for unit ${unit.id}`);
         }
       }
     }
     
+    console.log(`Total attacks this tick: ${attacks.length}`);
+    
     // Apply all damage
     for (const attack of attacks) {
+      const oldHp = attack.defender.stats.hp;
       attack.defender.stats.hp -= attack.damage;
+      console.log(`Damage applied: ${attack.defender.owner} ${attack.defender.type} HP ${oldHp} -> ${attack.defender.stats.hp}`);
     }
   }
 

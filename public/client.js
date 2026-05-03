@@ -55,7 +55,7 @@ class AutoBattlerClient {
         });
 
         this.socket.on('error', (message) => {
-            const errorMessage = message?.data?.message || message?.message || 'Unknown error occurred';
+            const errorMessage = message?.data?.message || message?.message || message || 'Unknown error occurred';
             this.showError(errorMessage);
         });
 
