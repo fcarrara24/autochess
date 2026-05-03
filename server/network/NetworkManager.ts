@@ -12,6 +12,12 @@ export class NetworkManager {
   constructor(io: SocketIOServer, gameEngine: GameEngine) {
     this.io = io;
     this.gameEngine = gameEngine;
+    
+    // Set up update callback to broadcast state changes
+    this.gameEngine.setUpdateCallback(() => {
+      this.sendGameStateToAll();
+    });
+    
     this.setupSocketHandlers();
   }
 

@@ -4,12 +4,23 @@ import { Grid, Player, UnitController } from '../models';
 export class GameEngine {
   private gameState: GameState;
   private gameLoopInterval: NodeJS.Timeout | null = null;
+  private updateCallback?: () => void;
   private readonly TICK_RATE = 200; // 5 ticks per second
   private readonly PLACEMENT_TIME = 30000; // 30 seconds
   private readonly BATTLE_TIME = 40000; // 40 seconds
 
   constructor() {
     this.gameState = this.initializeGame();
+  }
+  
+  public setUpdateCallback(callback: () => void): void {
+    this.updateCallback = callback;
+  }
+  
+  private notifyUpdate(): void {
+    if (this.updateCallback) {
+      this.updateCallback();
+    }
   }
 
   private initializeGame(): GameState {
@@ -119,6 +130,7 @@ export class GameEngine {
   }
 
   private startBattlePhase(): void {
+    console.log('Starting battle phase');
     this.gameState.phase = GamePhase.BATTLE;
     this.gameState.roundStartTime = Date.now();
     this.gameState.tickCount = 0;
@@ -134,6 +146,9 @@ export class GameEngine {
         this.endRound();
       }
     }, this.BATTLE_TIME);
+    
+    // Notify listeners of phase change
+    this.notifyUpdate();
   }
 
   private gameTick(): void {
@@ -142,6 +157,8 @@ export class GameEngine {
     }
 
     this.gameState.tickCount++;
+    
+    console.log(`Battle tick ${this.gameState.tickCount}`);
     
     // Movement phase
     this.processMovementPhase();
@@ -152,6 +169,9 @@ export class GameEngine {
     // Death resolution
     this.processDeathResolution();
     
+    // Notify listeners of state change
+    this.notifyUpdate();
+    
     // Check for round end
     if (this.checkRoundEnd()) {
       this.endRound();
@@ -160,6 +180,7 @@ export class GameEngine {
 
   private processMovementPhase(): void {
     const allUnits = this.getAllAliveUnits();
+    console.log(`Processing movement for ${allUnits.length} units`);
     
     // Sort units by placement timestamp and player priority
     allUnits.sort((a, b) => {
@@ -230,6 +251,7 @@ export class GameEngine {
 
   private processAttackPhase(): void {
     const allUnits = this.getAllAliveUnits();
+    console.log(`Processing attacks for ${allUnits.length} units`);
     
     // All attacks happen simultaneously
     const attacks: { attacker: import('../models/types').Unit; defender: import('../models/types').Unit; damage: number }[] = [];
@@ -241,6 +263,7 @@ export class GameEngine {
         const target = unit.targetId ? allUnits.find(u => u.id === unit.targetId) : null;
         if (target && this.gameState.grid.isInRange(unit.position, target.position, unit.stats.range)) {
           attacks.push({ attacker: unit, defender: target, damage: unit.stats.damage });
+          console.log(`Attack: ${unit.owner} ${unit.type} -> ${target.owner} ${target.type} for ${unit.stats.damage} damage`);
         }
       }
     }
