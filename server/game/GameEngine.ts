@@ -65,10 +65,15 @@ export class GameEngine {
     if (player) {
       player.isConnected = true;
       
-      // Check if we can resume the game
+      // Check if we can resume the game or start placement timer
       const connectedPlayers = this.gameState.players.filter(p => p.isConnected);
-      if (connectedPlayers.length === 2 && this.gameState.isPaused) {
-        this.resumeGame();
+      if (connectedPlayers.length === 2) {
+        if (this.gameState.isPaused) {
+          this.resumeGame();
+        } else if (this.gameState.phase === GamePhase.PLACEMENT && !this.gameState.roundStartTime) {
+          // Both players connected and placement timer hasn't started yet
+          this.checkAndStartPlacementTimer();
+        }
       }
       
       return true;
@@ -78,7 +83,6 @@ export class GameEngine {
 
   private startPlacementPhase(): void {
     this.gameState.phase = GamePhase.PLACEMENT;
-    this.gameState.roundStartTime = Date.now();
     this.gameState.isPaused = false;
     
     // Clear any existing game loop
@@ -87,12 +91,31 @@ export class GameEngine {
       this.gameLoopInterval = null;
     }
 
-    // Start placement timer
-    setTimeout(() => {
-      if (this.gameState.phase === GamePhase.PLACEMENT) {
-        this.startBattlePhase();
-      }
-    }, this.PLACEMENT_TIME);
+    // Wait for both players to be connected before starting timer
+    this.checkAndStartPlacementTimer();
+  }
+  
+  private checkAndStartPlacementTimer(): void {
+    const connectedPlayers = this.gameState.players.filter(p => p.isConnected);
+    
+    if (connectedPlayers.length === 2) {
+      // Both players are connected, start the timer
+      this.gameState.roundStartTime = Date.now();
+      
+      // Start placement timer
+      setTimeout(() => {
+        if (this.gameState.phase === GamePhase.PLACEMENT) {
+          this.startBattlePhase();
+        }
+      }, this.PLACEMENT_TIME);
+    } else {
+      // Wait a bit and check again
+      setTimeout(() => {
+        if (this.gameState.phase === GamePhase.PLACEMENT) {
+          this.checkAndStartPlacementTimer();
+        }
+      }, 1000);
+    }
   }
 
   private startBattlePhase(): void {

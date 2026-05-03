@@ -1,22 +1,37 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const http_1 = require("http");
 const socket_io_1 = require("socket.io");
-const ecstatic_1 = __importDefault(require("ecstatic"));
+const fs_1 = require("fs");
+const path_1 = require("path");
 const GameEngine_1 = require("./game/GameEngine");
 const NetworkManager_1 = require("./network/NetworkManager");
 const PORT = process.env.PORT || 3000;
-// Create HTTP server with static file serving
-const staticMiddleware = (0, ecstatic_1.default)({
-    root: `${__dirname}/../public`,
-    showDir: false,
-    autoIndex: true,
-});
+// Simple static file server
+const getContentType = (filePath) => {
+    const ext = (0, path_1.extname)(filePath);
+    switch (ext) {
+        case '.html': return 'text/html';
+        case '.js': return 'text/javascript';
+        case '.css': return 'text/css';
+        default: return 'text/plain';
+    }
+};
 const server = (0, http_1.createServer)((req, res) => {
-    staticMiddleware(req, res);
+    let filePath = `${__dirname}/../public${req.url}`;
+    // Default to index.html for root path
+    if (req.url === '/') {
+        filePath = `${__dirname}/../public/index.html`;
+    }
+    if ((0, fs_1.existsSync)(filePath)) {
+        const content = (0, fs_1.readFileSync)(filePath);
+        res.writeHead(200, { 'Content-Type': getContentType(filePath) });
+        res.end(content);
+    }
+    else {
+        res.writeHead(404);
+        res.end('Not Found');
+    }
 });
 // Create Socket.IO server
 const io = new socket_io_1.Server(server, {

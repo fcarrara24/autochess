@@ -12,8 +12,13 @@ class AutoBattlerClient {
         this.isDragging = false;
         this.dragStartPos = null;
         
+        // Refresh system
+        this.lastRefreshTime = 0;
+        this.placementRefreshInterval = 1000; // 1 second
+        
         this.setupEventListeners();
         this.connect();
+        this.startRefreshLoop();
     }
 
     setupEventListeners() {
@@ -34,8 +39,19 @@ class AutoBattlerClient {
 
         this.socket.on('gameState', (message) => {
             this.gameState = message.data;
-            this.render();
-            this.updateUI();
+            
+            // Always refresh in battle phase
+            if (this.gameState.phase === 'BATTLE') {
+                this.render();
+                this.updateUI();
+            } else {
+                // In placement phase, refresh only on significant changes or time interval
+                if (this.shouldRefreshPlacement()) {
+                    this.render();
+                    this.updateUI();
+                    this.lastRefreshTime = Date.now();
+                }
+            }
         });
 
         this.socket.on('error', (message) => {
@@ -357,6 +373,31 @@ class AutoBattlerClient {
         statusElement.className = status;
     }
 
+    startRefreshLoop() {
+        // Refresh every second in placement phase
+        setInterval(() => {
+            if (this.gameState && this.gameState.phase === 'PLACEMENT') {
+                this.render();
+                this.updateUI();
+                this.lastRefreshTime = Date.now();
+            }
+        }, this.placementRefreshInterval);
+    }
+    
+    shouldRefreshPlacement() {
+        const now = Date.now();
+        const timeSinceLastRefresh = now - this.lastRefreshTime;
+        
+        // Refresh if enough time has passed
+        if (timeSinceLastRefresh >= this.placementRefreshInterval) {
+            return true;
+        }
+        
+        // Could add more conditions here for opponent interactions
+        // For now, just time-based refresh
+        return false;
+    }
+    
     showError(message, duration = 3000) {
         const popup = document.getElementById('errorPopup');
         popup.textContent = message;
