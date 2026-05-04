@@ -377,6 +377,9 @@ class AutoBattlerClient {
 
         // Update round
         document.getElementById('round').textContent = this.gameState.currentRound;
+        
+        // Update game counter
+        document.getElementById('gameNumber').textContent = this.gameState.totalGames + 1;
 
         // Update scores
         const playerA = this.gameState.players.find(p => p.slot === 'A');

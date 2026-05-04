@@ -66,6 +66,8 @@ export interface GameState {
   roundWinner?: PlayerSlot;
   winner?: PlayerSlot;
   drawResult?: boolean;
+  totalGames: number;
+  maxGames: number;
 }
 
 export interface ClientAction {

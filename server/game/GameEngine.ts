@@ -34,7 +34,9 @@ export class GameEngine {
       placementTimeLimit: this.PLACEMENT_TIME,
       battleTimeLimit: this.BATTLE_TIME,
       tickCount: 0,
-      isPaused: false
+      isPaused: false,
+      totalGames: 0,
+      maxGames: 6
     };
   }
 
@@ -375,6 +377,9 @@ export class GameEngine {
     let roundWinner: PlayerSlot | undefined = undefined;
     let isDraw = false;
     
+    // Increment total games played
+    this.gameState.totalGames++;
+    
     // Check for draw (both units dead or timeout)
     if (playerAUnits.length === 0 && playerBUnits.length === 0) {
       isDraw = true;
@@ -408,26 +413,45 @@ export class GameEngine {
     this.gameState.roundWinner = roundWinner;
     this.gameState.drawResult = isDraw;
     
-    // Notify listeners of round end
-    this.notifyUpdate();
-
-    // Check for match winner
+    // Check for absolute winner (3 wins or max games reached)
     const playerA = this.gameState.players.find(p => p.slot === PlayerSlot.PLAYER_A);
     const playerB = this.gameState.players.find(p => p.slot === PlayerSlot.PLAYER_B);
 
+    let absoluteWinner: PlayerSlot | undefined = undefined;
+    
     if (playerA && playerA.score >= 3) {
-      this.gameState.winner = PlayerSlot.PLAYER_A;
+      absoluteWinner = PlayerSlot.PLAYER_A;
+      console.log('Player A wins the match with 3 victories!');
+    } else if (playerB && playerB.score >= 3) {
+      absoluteWinner = PlayerSlot.PLAYER_B;
+      console.log('Player B wins the match with 3 victories!');
+    } else if (this.gameState.totalGames >= this.gameState.maxGames) {
+      // Max games reached, check who has more points
+      if (playerA && playerB) {
+        if (playerA.score > playerB.score) {
+          absoluteWinner = PlayerSlot.PLAYER_A;
+          console.log(`Player A wins the match on points (${playerA.score} vs ${playerB.score})!`);
+        } else if (playerB.score > playerA.score) {
+          absoluteWinner = PlayerSlot.PLAYER_B;
+          console.log(`Player B wins the match on points (${playerB.score} vs ${playerA.score})!`);
+        } else {
+          // Still tied after max games - it's a draw
+          console.log('Match ends in a tie after max games!');
+        }
+      }
+    }
+    
+    // Set absolute winner if determined
+    if (absoluteWinner) {
+      this.gameState.winner = absoluteWinner;
       this.notifyUpdate();
       return;
     }
+    
+    // Notify listeners of round end
+    this.notifyUpdate();
 
-    if (playerB && playerB.score >= 3) {
-      this.gameState.winner = PlayerSlot.PLAYER_B;
-      this.notifyUpdate();
-      return;
-    }
-
-    // Start next round after 5 seconds
+    // Start next round after 5 seconds (only if match continues)
     setTimeout(() => {
       this.startNewRound();
     }, 5000);
