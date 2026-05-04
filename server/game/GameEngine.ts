@@ -104,6 +104,9 @@ export class GameEngine {
       this.gameLoopInterval = null;
     }
 
+    // Notify clients of phase change
+    this.notifyUpdate();
+
     // Wait for both players to be connected before starting timer
     this.checkAndStartPlacementTimer();
   }
@@ -132,7 +135,6 @@ export class GameEngine {
   }
 
   private startBattlePhase(): void {
-    console.log('Starting battle phase');
     this.gameState.phase = GamePhase.BATTLE;
     this.gameState.roundStartTime = Date.now();
     this.gameState.tickCount = 0;
@@ -159,8 +161,6 @@ export class GameEngine {
     }
 
     this.gameState.tickCount++;
-    
-    console.log(`Battle tick ${this.gameState.tickCount}`);
     
     // Movement phase
     this.processMovementPhase();
@@ -413,20 +413,27 @@ export class GameEngine {
     this.gameState.roundWinner = roundWinner;
     this.gameState.drawResult = isDraw;
     
+    // Notify listeners of round end
+    this.notifyUpdate();
+
     // Check for absolute winner (3 wins or max games reached)
     const playerA = this.gameState.players.find(p => p.slot === PlayerSlot.PLAYER_A);
     const playerB = this.gameState.players.find(p => p.slot === PlayerSlot.PLAYER_B);
 
     let absoluteWinner: PlayerSlot | undefined = undefined;
+    let matchEnded = false;
     
     if (playerA && playerA.score >= 3) {
       absoluteWinner = PlayerSlot.PLAYER_A;
+      matchEnded = true;
       console.log('Player A wins the match with 3 victories!');
     } else if (playerB && playerB.score >= 3) {
       absoluteWinner = PlayerSlot.PLAYER_B;
+      matchEnded = true;
       console.log('Player B wins the match with 3 victories!');
     } else if (this.gameState.totalGames >= this.gameState.maxGames) {
       // Max games reached, check who has more points
+      matchEnded = true; // Match ends regardless of winner
       if (playerA && playerB) {
         if (playerA.score > playerB.score) {
           absoluteWinner = PlayerSlot.PLAYER_A;
@@ -445,12 +452,15 @@ export class GameEngine {
     if (absoluteWinner) {
       this.gameState.winner = absoluteWinner;
       this.notifyUpdate();
+      return; // Don't start new round when match is over
+    }
+    
+    // If match ended without winner (draw), still don't start new round
+    if (matchEnded) {
+      this.notifyUpdate();
       return;
     }
     
-    // Notify listeners of round end
-    this.notifyUpdate();
-
     // Start next round after 5 seconds (only if match continues)
     setTimeout(() => {
       this.startNewRound();

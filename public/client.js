@@ -16,9 +16,17 @@ class AutoBattlerClient {
         this.lastRefreshTime = 0;
         this.placementRefreshInterval = 1000; // 1 second
         
+        // Track shown popups to prevent duplicates
+        this.shownPopups = {
+            roundWinner: null,
+            drawResult: null,
+            matchWinner: null
+        };
+        
         this.setupEventListeners();
         this.connect();
         this.startRefreshLoop();
+        this.setupPopupCloseHandlers();
     }
 
     setupEventListeners() {
@@ -34,34 +42,47 @@ class AutoBattlerClient {
 
         this.socket.on('playerSlot', (data) => {
             this.playerSlot = data.slot;
-            console.log(`Assigned to slot ${this.playerSlot}`);
         });
 
         this.socket.on('gameState', (message) => {
+            const previousPhase = this.gameState ? this.gameState.phase : null;
             this.gameState = message.data;
             
             // Check for match winner (total victory)
-            if (this.gameState.winner) {
+            if (this.gameState.winner && this.shownPopups.matchWinner !== this.gameState.winner) {
                 this.showMatchWinnerPopup(this.gameState.winner);
-            } else if (this.gameState.drawResult) {
+                this.shownPopups.matchWinner = this.gameState.winner;
+            } else if (this.gameState.drawResult && !this.shownPopups.drawResult) {
                 // Check for draw result
                 this.showDrawPopup();
-            } else if (this.gameState.roundWinner) {
+                this.shownPopups.drawResult = true;
+            } else if (this.gameState.roundWinner && this.shownPopups.roundWinner !== this.gameState.roundWinner) {
                 // Check for round winner (but not match winner)
                 this.showVictoryPopup(this.gameState.roundWinner);
+                this.shownPopups.roundWinner = this.gameState.roundWinner;
             }
+            
+            // Reset popup tracking when starting new round
+            if (previousPhase === 'BATTLE' && this.gameState.phase === 'PLACEMENT') {
+                this.shownPopups = {
+                    roundWinner: null,
+                    drawResult: null,
+                    matchWinner: null
+                };
+            }
+            
+            // Force refresh if phase changed
+            const phaseChanged = previousPhase && previousPhase !== this.gameState.phase;
             
             // Always refresh in battle phase
             if (this.gameState.phase === 'BATTLE') {
                 this.render();
                 this.updateUI();
-            } else {
-                // In placement phase, refresh only on significant changes or time interval
-                if (this.shouldRefreshPlacement()) {
-                    this.render();
-                    this.updateUI();
-                    this.lastRefreshTime = Date.now();
-                }
+            } else if (phaseChanged || this.shouldRefreshPlacement()) {
+                // In placement phase, refresh if phase changed or time interval passed
+                this.render();
+                this.updateUI();
+                this.lastRefreshTime = Date.now();
             }
         });
 
@@ -400,6 +421,24 @@ class AutoBattlerClient {
         statusElement.className = status;
     }
 
+    setupPopupCloseHandlers() {
+        // Close popups when clicking outside
+        document.addEventListener('click', (e) => {
+            const popups = ['victoryPopup', 'drawPopup'];
+            
+            popups.forEach(popupId => {
+                const popup = document.getElementById(popupId);
+                if (popup && popup.style.display === 'block' && !popup.contains(e.target)) {
+                    // Clear timeout if exists
+                    if (popup.dataset.timeout) {
+                        clearTimeout(parseInt(popup.dataset.timeout));
+                    }
+                    popup.style.display = 'none';
+                }
+            });
+        });
+    }
+    
     startRefreshLoop() {
         // Refresh every second in placement phase
         setInterval(() => {
@@ -448,10 +487,13 @@ class AutoBattlerClient {
         
         popup.style.display = 'block';
         
-        // Hide after 5 seconds
-        setTimeout(() => {
+        // Hide after 3 seconds
+        const timeout = setTimeout(() => {
             popup.style.display = 'none';
-        }, 5000);
+        }, 3000);
+        
+        // Store timeout to clear if clicked outside
+        popup.dataset.timeout = timeout;
     }
     
     showMatchWinnerPopup(winner) {
@@ -477,10 +519,13 @@ class AutoBattlerClient {
         popup.style.background = 'linear-gradient(135deg, #9E9E9E, #757575)';
         popup.style.display = 'block';
         
-        // Hide after 5 seconds
-        setTimeout(() => {
+        // Hide after 3 seconds
+        const timeout = setTimeout(() => {
             popup.style.display = 'none';
-        }, 5000);
+        }, 3000);
+        
+        // Store timeout to clear if clicked outside
+        popup.dataset.timeout = timeout;
     }
 }
 
