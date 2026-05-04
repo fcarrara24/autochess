@@ -147,6 +147,30 @@
             100% { transform: translateX(-50%) translateY(0); opacity: 1; }
         }
 
+        #drawPopup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #9E9E9E, #757575);
+            color: white;
+            padding: 30px 50px;
+            border-radius: 15px;
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+            z-index: 2500;
+            box-shadow: 0 10px 30px rgba(158, 158, 158, 0.5);
+            animation: drawPulse 0.6s ease-in-out;
+        }
+
+        @keyframes drawPulse {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
         #connectionStatus {
             position: fixed;
             top: 20px;
@@ -202,6 +226,7 @@
     <div id="errorPopup"></div>
     <div id="victoryPopup">Hai vinto!</div>
     <div id="matchWinnerPopup">VITTORIA TOTALE!</div>
+    <div id="drawPopup">PAREGGIO!</div>
     
     <div id="gameContainer">
         <div id="unitPanel">

@@ -65,6 +65,7 @@ export interface GameState {
   isPaused: boolean;
   roundWinner?: PlayerSlot;
   winner?: PlayerSlot;
+  drawResult?: boolean;
 }
 
 export interface ClientAction {

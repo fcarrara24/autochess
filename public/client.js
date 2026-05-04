@@ -43,6 +43,9 @@ class AutoBattlerClient {
             // Check for match winner (total victory)
             if (this.gameState.winner) {
                 this.showMatchWinnerPopup(this.gameState.winner);
+            } else if (this.gameState.drawResult) {
+                // Check for draw result
+                this.showDrawPopup();
             } else if (this.gameState.roundWinner) {
                 // Check for round winner (but not match winner)
                 this.showVictoryPopup(this.gameState.roundWinner);
@@ -463,6 +466,18 @@ class AutoBattlerClient {
         
         // Keep visible indefinitely (game ends)
         // No auto-hide needed as the match is over
+    }
+    
+    showDrawPopup() {
+        const popup = document.getElementById('drawPopup');
+        popup.textContent = '🤝 PAREGGIO! 🤝';
+        popup.style.background = 'linear-gradient(135deg, #9E9E9E, #757575)';
+        popup.style.display = 'block';
+        
+        // Hide after 5 seconds
+        setTimeout(() => {
+            popup.style.display = 'none';
+        }, 5000);
     }
 }
 

@@ -373,24 +373,40 @@ export class GameEngine {
     const playerBUnits = this.getAllAliveUnits().filter(u => u.owner === PlayerSlot.PLAYER_B);
 
     let roundWinner: PlayerSlot | undefined = undefined;
+    let isDraw = false;
     
-    // Award points and determine round winner
-    if (playerAUnits.length > 0 && playerBUnits.length === 0) {
-      const playerA = this.gameState.players.find(p => p.slot === PlayerSlot.PLAYER_A);
-      if (playerA) {
-        playerA.incrementScore();
-        roundWinner = PlayerSlot.PLAYER_A;
-      }
-    } else if (playerBUnits.length > 0 && playerAUnits.length === 0) {
-      const playerB = this.gameState.players.find(p => p.slot === PlayerSlot.PLAYER_B);
-      if (playerB) {
-        playerB.incrementScore();
-        roundWinner = PlayerSlot.PLAYER_B;
+    // Check for draw (both units dead or timeout)
+    if (playerAUnits.length === 0 && playerBUnits.length === 0) {
+      isDraw = true;
+      console.log('Round ended in a draw - both players have no units');
+    } else if (this.gameState.tickCount >= (this.BATTLE_TIME / this.TICK_RATE)) {
+      // Timeout reached - check who has more units
+      if (playerAUnits.length === playerBUnits.length) {
+        isDraw = true;
+        console.log('Round ended in a draw - timeout with equal units');
       }
     }
     
-    // Set round winner in game state
+    // Award points and determine round winner (if not draw)
+    if (!isDraw) {
+      if (playerAUnits.length > 0 && playerBUnits.length === 0) {
+        const playerA = this.gameState.players.find(p => p.slot === PlayerSlot.PLAYER_A);
+        if (playerA) {
+          playerA.incrementScore();
+          roundWinner = PlayerSlot.PLAYER_A;
+        }
+      } else if (playerBUnits.length > 0 && playerAUnits.length === 0) {
+        const playerB = this.gameState.players.find(p => p.slot === PlayerSlot.PLAYER_B);
+        if (playerB) {
+          playerB.incrementScore();
+          roundWinner = PlayerSlot.PLAYER_B;
+        }
+      }
+    }
+    
+    // Set round result in game state
     this.gameState.roundWinner = roundWinner;
+    this.gameState.drawResult = isDraw;
     
     // Notify listeners of round end
     this.notifyUpdate();
