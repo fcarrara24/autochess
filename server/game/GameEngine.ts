@@ -217,24 +217,65 @@ export class GameEngine {
     let targetPosition: import('../models/types').Position | null = null;
 
     if (unit.state === 'SEEK') {
-      // Move forward toward enemy side
-      const forwardDirection = unit.owner === PlayerSlot.PLAYER_A ? 1 : -1;
-      const forwardPositions = validMoves.filter(pos => 
-        pos.x === unit.position.x + forwardDirection
-      );
+      // Always find nearest enemy and move toward it
+      const allUnits = this.getAllAliveUnits();
+      const enemies = allUnits.filter(u => u.owner !== unit.owner);
       
-      console.log(`SEEK mode - forward direction: ${forwardDirection}, forward positions:`, forwardPositions);
-      
-      if (forwardPositions.length > 0) {
-        targetPosition = forwardPositions[0];
-      } else {
-        // Try diagonal forward positions
-        const diagonalPositions = validMoves.filter(pos => 
-          pos.x === unit.position.x + forwardDirection
-        );
-        console.log(`Trying diagonal positions:`, diagonalPositions);
-        if (diagonalPositions.length > 0) {
-          targetPosition = diagonalPositions[0];
+      if (enemies.length > 0) {
+        // Find closest enemy
+        let nearestEnemy = enemies[0];
+        let minDistance = this.gameState.grid.getManhattanDistance(unit.position, nearestEnemy.position);
+        
+        for (const enemy of enemies) {
+          const distance = this.gameState.grid.getManhattanDistance(unit.position, enemy.position);
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestEnemy = enemy;
+          }
+        }
+        
+        console.log(`SEEK mode - nearest enemy at (${nearestEnemy.position.x},${nearestEnemy.position.y}), distance: ${minDistance}`);
+        
+        // If enemy is in range, don't move (should transition to ATTACK)
+        if (minDistance <= unit.stats.range) {
+          console.log(`Enemy in range, staying in position`);
+          return;
+        }
+        
+        // Move toward the nearest enemy
+        const dx = Math.sign(nearestEnemy.position.x - unit.position.x);
+        const dy = Math.sign(nearestEnemy.position.y - unit.position.y);
+        
+        // Try to move in the direction of the enemy
+        const towardPositions = validMoves.filter(pos => {
+          const moveDx = Math.sign(pos.x - unit.position.x);
+          const moveDy = Math.sign(pos.y - unit.position.y);
+          return (moveDx === dx && moveDy === 0) || (moveDx === 0 && moveDy === dy) || (moveDx === dx && moveDy === dy);
+        });
+        
+        console.log(`Positions toward enemy:`, towardPositions);
+        
+        if (towardPositions.length > 0) {
+          // Prefer diagonal if available, then straight
+          const diagonalPos = towardPositions.find(pos => 
+            Math.sign(pos.x - unit.position.x) === dx && Math.sign(pos.y - unit.position.y) === dy
+          );
+          targetPosition = diagonalPos || towardPositions[0];
+        } else {
+          // If no direct path, try any valid move that reduces distance
+          let bestPos = validMoves[0];
+          let bestDistance = this.gameState.grid.getManhattanDistance(bestPos, nearestEnemy.position);
+          
+          for (const pos of validMoves) {
+            const distance = this.gameState.grid.getManhattanDistance(pos, nearestEnemy.position);
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              bestPos = pos;
+            }
+          }
+          
+          console.log(`Best position to reduce distance: (${bestPos.x},${bestPos.y}), new distance: ${bestDistance}`);
+          targetPosition = bestPos;
         }
       }
     } else if (unit.state === 'ENGAGED') {
