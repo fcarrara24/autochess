@@ -123,6 +123,30 @@
             100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         }
 
+        #matchWinnerPopup {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #333;
+            padding: 20px 40px;
+            border-radius: 10px;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+            z-index: 3000;
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.5);
+            animation: matchWinnerSlide 0.8s ease-in-out;
+        }
+
+        @keyframes matchWinnerSlide {
+            0% { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+            50% { transform: translateX(-50%) translateY(0); opacity: 1; }
+            100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
         #connectionStatus {
             position: fixed;
             top: 20px;
@@ -177,6 +201,7 @@
     <div id="connectionStatus">Connecting...</div>
     <div id="errorPopup"></div>
     <div id="victoryPopup">Hai vinto!</div>
+    <div id="matchWinnerPopup">VITTORIA TOTALE!</div>
     
     <div id="gameContainer">
         <div id="unitPanel">

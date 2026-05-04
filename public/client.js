@@ -40,8 +40,11 @@ class AutoBattlerClient {
         this.socket.on('gameState', (message) => {
             this.gameState = message.data;
             
-            // Check for round winner
-            if (this.gameState.roundWinner) {
+            // Check for match winner (total victory)
+            if (this.gameState.winner) {
+                this.showMatchWinnerPopup(this.gameState.winner);
+            } else if (this.gameState.roundWinner) {
+                // Check for round winner (but not match winner)
                 this.showVictoryPopup(this.gameState.roundWinner);
             }
             
@@ -443,6 +446,23 @@ class AutoBattlerClient {
         setTimeout(() => {
             popup.style.display = 'none';
         }, 5000);
+    }
+    
+    showMatchWinnerPopup(winner) {
+        const popup = document.getElementById('matchWinnerPopup');
+        
+        if (winner === this.playerSlot) {
+            popup.textContent = '🏆 VITTORIA TOTALE! 🏆';
+            popup.style.background = 'linear-gradient(135deg, #FFD700, #FFA500)';
+        } else {
+            popup.textContent = '💔 SCONFITTA TOTALE 💔';
+            popup.style.background = 'linear-gradient(135deg, #8B4513, #A0522D)';
+        }
+        
+        popup.style.display = 'block';
+        
+        // Keep visible indefinitely (game ends)
+        // No auto-hide needed as the match is over
     }
 }
 
