@@ -1,0 +1,68 @@
+import { createServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import { readFileSync, existsSync } from 'fs';
+import { extname } from 'path';
+import { GameEngine } from './game/GameEngine';
+import { NetworkManager } from './network/NetworkManager';
+
+const PORT = process.env.PORT || 3000;
+
+// Simple static file server
+const getContentType = (filePath: string) => {
+  const ext = extname(filePath);
+  switch (ext) {
+    case '.html': return 'text/html';
+    case '.js': return 'text/javascript';
+    case '.css': return 'text/css';
+    default: return 'text/plain';
+  }
+};
+
+const server = createServer((req, res) => {
+  let filePath = `${__dirname}/../public${req.url}`;
+  
+  // Default to index.html for root path
+  if (req.url === '/') {
+    filePath = `${__dirname}/../public/index.html`;
+  }
+  
+  if (existsSync(filePath)) {
+    const content = readFileSync(filePath);
+    res.writeHead(200, { 'Content-Type': getContentType(filePath) });
+    res.end(content);
+  } else {
+    res.writeHead(404);
+    res.end('Not Found');
+  }
+});
+
+// Create Socket.IO server
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Initialize game engine
+const gameEngine = new GameEngine();
+
+// Initialize network manager
+const networkManager = new NetworkManager(io, gameEngine);
+
+// Start server
+server.listen(PORT, () => {
+  console.log(`Auto-battler server running on port ${PORT}`);
+  console.log(`Static files served from: ${__dirname}/../public`);
+  console.log(`Open http://localhost:${PORT} to play`);
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Shutting down server...');
+  gameEngine.shutdown();
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});

@@ -1,181 +1,109 @@
-# Autochess Battle Simulator
+# Auto-Battler Game
 
-A deterministic autochess battle simulator built with TypeScript and Node.js. This system allows you to simulate battles between different team compositions, analyze matchup statistics, and test unit balancing.
+A simple multiplayer auto-battler game built with TypeScript, Node.js, and WebSocket.
 
 ## Features
 
-- **Deterministic Simulation Engine**: No randomness - every simulation is reproducible
-- **Modular Architecture**: Clean separation between core engine, entities, and persistence
-- **SQLite Database**: Store match results and analyze statistics
-- **CLI Interface**: Run matches and batch simulations from command line
-- **Debug Logging**: Comprehensive logging and replay system for debugging
-- **Meta Analysis**: Win rate matrices and matchup statistics
+- **Multiplayer**: 2-player real-time battles
+- **Authoritative Server**: Server validates all game actions
+- **Unit Types**: Melee and Ranged units with different stats
+- **Grid-based Combat**: 3x8 grid arena
+- **Placement & Battle Phases**: 30s placement, 40s battle
+- **State Machine AI**: Units with SEEK, ENGAGED, ATTACK, IDLE states
+- **Real-time Updates**: 5 ticks/second game loop
 
 ## Quick Start
 
-### Installation
-
+1. Install dependencies:
 ```bash
 npm install
 ```
 
-### Initialize Database
-
+2. Start the server:
 ```bash
-npm run dev -- --init-db
+npm start
 ```
 
-### Run a Single Match
-
-```bash
-npm run run-match -- --deckA turtle --deckB aggro
+3. Open browser:
 ```
-
-### Run Batch Simulations
-
-```bash
-npm run run-batch -- --matches 100 --decks turtle,aggro,balanced
+http://localhost:3000
 ```
-
-### Run Visual Terminal
-
-```bash
-npm run run-visual -- --deckA turtle --deckB aggro --speed 50
-```
-
-### Run Unified Web Interface
-
-```bash
-npm run server
-```
-
-Then open http://localhost:3000 in your web browser.
-
-## Architecture
-
-### Core Components
-
-- **Entities**: `UnitTemplate`, `UnitInstance`, `Team`, `Deck`
-- **Engine**: Deterministic tick-based simulation with movement and combat phases
-- **Database**: SQLite storage for matches and statistics
-- **CLI**: Command-line interface for running simulations
-
-### Simulation Flow
-
-1. **Setup**: Teams are created from decks using unit templates
-2. **Tick Processing**: Each tick has movement, collision, and attack phases
-3. **Resolution**: Damage is applied simultaneously, units die when HP reaches 0
-4. **Termination**: Match ends when one team is eliminated or max ticks reached
-
-## Unit Templates
-
-The system includes 4 default unit types:
-
-- **Tank**: High HP, low damage, melee range
-- **Melee**: Balanced stats, melee range
-- **Fast Melee**: Low HP, good damage, fast movement
-- **Ranged**: Low HP, high damage, long range
-
-## Predefined Decks
-
-- **Turtle**: 3 tanks + 2 ranged units
-- **Aggro**: 4 fast melee + 1 melee
-- **Balanced**: 1 tank + 2 melee + 2 ranged
-
-## CLI Commands
-
-### run-match
-
-Run a single match between two decks.
-
-```bash
-npm run run-match -- [options]
-```
-
-Options:
-- `--deckA <name>`: Deck for team A (default: balanced)
-- `--deckB <name>`: Deck for team B (default: balanced)
-- `--maxTicks <num>`: Maximum ticks per match (default: 1000)
-- `--logging`: Enable detailed logging
-- `--width <num>`: Grid width (default: 12)
-- `--height <num>`: Grid height (default: 8)
-
-### run-batch
-
-Run batch simulations for matchup analysis.
-
-```bash
-npm run run-batch -- [options]
-```
-
-Options:
-- `--iterations <num>`: Iterations per matchup (default: 100)
-- `--maxTicks <num>`: Maximum ticks per match (default: 1000)
-- `--logging`: Enable detailed logging
-- `--width <num>`: Grid width (default: 12)
-- `--height <num>`: Grid height (default: 8)
-- `--decks <list>`: Comma-separated deck list (default: all)
-- `--no-report`: Skip matchup report generation
-
-## Database Schema
-
-The system uses SQLite with the following tables:
-
-- `unit_templates`: Store unit definitions
-- `matches`: Store match results
-- `match_results`: Store detailed match statistics
-- `match_logs`: Store tick-by-tick logs (optional)
-
-## Debugging
-
-The system includes comprehensive debugging features:
-
-- **Tick Logs**: Detailed logs for each simulation tick
-- **Match Snapshots**: Complete state snapshots for any tick
-- **Replay System**: Replay matches to analyze behavior
-- **State Comparison**: Compare snapshots between different ticks
-
-## Determinism
-
-The simulation engine is fully deterministic:
-- No random number generation in core logic
-- Consistent unit ordering in all operations
-- Reproducible results given same input
 
 ## Development
 
-### Building
-
-```bash
-npm run build
-```
-
-### Running in Development
-
+Development mode with auto-restart:
 ```bash
 npm run dev
 ```
 
-### Project Structure
-
-```
-src/
-  core/          # Simulation engine
-  entities/      # Game entities
-  meta/          # Batch simulation and analysis
-  db/            # Database layer
-  utils/         # Utilities (logging, deterministic helpers)
-  cli/           # Command-line interface
+Build TypeScript:
+```bash
+npm run build
 ```
 
-## Contributing
+## Game Rules
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Ensure all tests pass
-5. Submit a pull request
+### Arena
+- Grid size: 3 rows × 8 columns
+- Player A area: columns 0-3 (blue)
+- Player B area: columns 4-7 (red)
+- Max 1 unit per tile
+- Max 12 units per player
 
-## License
+### Units
+- **Melee**: 30 HP, 10 damage, range 1
+- **Ranged**: 20 HP, 6 damage, range 2
 
-MIT License
+### Phases
+1. **Placement Phase** (30s)
+   - Place units in your area
+   - Move units within your area
+   - Remove units
+   - Right-click or shift-click to remove
+
+2. **Battle Phase** (40s or until one side loses)
+   - No player input
+   - Units fight automatically
+   - 5 ticks/second
+
+### Victory
+- First player to 3 points wins
+- 1 point per round victory
+- Timeout = 0 points (tie)
+
+## Controls
+
+- **Left Click**: Place selected unit type
+- **Right Click/Shift**: Remove unit
+- **Drag & Drop**: Move units (placement phase only)
+
+## Architecture
+
+```
+/server
+  /network    → WebSocket connections and events
+  /game       → Game loop, movement, combat logic
+  /models     → Unit, Player, Grid classes
+  /state      → Match and round state
+  index.ts    → Server bootstrap
+
+/public
+  index.html  → Game UI
+  client.js   → Client-side logic and rendering
+```
+
+## Networking
+
+- Client sends intentions only (place, move, remove)
+- Server validates everything
+- Server sends full game state every tick
+- Rate limiting prevents spam
+- Game pauses on disconnection
+
+## Technical Details
+
+- **Server**: Node.js + TypeScript + Socket.IO
+- **Client**: HTML5 Canvas + Vanilla JavaScript
+- **Game Loop**: 200ms intervals (5 ticks/sec)
+- **State Sync**: Authoritative server model
+- **Combat**: Manhattan distance, simultaneous attacks
