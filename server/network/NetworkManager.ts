@@ -1,12 +1,14 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { GameEngine } from '../game/GameEngine';
 import { ClientAction, ServerMessage, GamePhase, UnitType } from '../models';
+import { IGrid } from '../models';
 
 export class NetworkManager {
   private io: SocketIOServer;
   private gameEngine: GameEngine;
   private playerSockets: Map<string, Socket> = new Map();
   private rateLimiter: Map<string, number> = new Map();
+  private playerSessions: Map<string, { socketId: string; lastSeen: number }> = new Map();
   private readonly RATE_LIMIT_MS = 100; // Max 10 actions per second per client
 
   // constructor
@@ -27,9 +29,9 @@ export class NetworkManager {
     this.io.on('connection', (socket: Socket) => {
       console.log(`Player connected: ${socket.id}`);
 
-      // Handle player joining
-      socket.on('joinGame', () => {
-        this.handlePlayerJoin(socket);
+      // Handle player joining with optional persistent ID
+      socket.on('joinGame', (data: { persistentId?: string }) => {
+        this.handlePlayerJoin(socket, data?.persistentId);
       });
 
       // Handle client actions
@@ -44,8 +46,22 @@ export class NetworkManager {
     });
   }
 
-  private handlePlayerJoin(socket: Socket): void {
-    const playerSlot = this.gameEngine.addPlayer(socket.id);
+  private handlePlayerJoin(socket: Socket, persistentId?: string): void {
+    let playerId = socket.id;
+    let isReconnection = false;
+    
+    // Check if this is a reconnection with persistent ID
+    if (persistentId) {
+      const session = this.playerSessions.get(persistentId);
+      if (session && Date.now() - session.lastSeen < 5 * 60 * 1000) { // 5 minutes timeout
+        // This is a valid reconnection
+        playerId = persistentId;
+        isReconnection = true;
+        console.log(`Player reconnection detected: ${persistentId} -> ${socket.id}`);
+      }
+    }
+    
+    const playerSlot = this.gameEngine.addPlayer(playerId, isReconnection);
     
     if (playerSlot === null) {
       // Game is full
@@ -55,14 +71,15 @@ export class NetworkManager {
     }
 
     this.playerSockets.set(socket.id, socket);
+    this.playerSessions.set(playerId, { socketId: socket.id, lastSeen: Date.now() });
     
     // Send initial game state
     this.sendGameStateToAll();
     
-    // Send player their slot
-    socket.emit('playerSlot', { slot: playerSlot });
+    // Send player their slot and persistent ID
+    socket.emit('playerSlot', { slot: playerSlot, persistentId: playerId });
     
-    console.log(`Player ${socket.id} assigned to slot ${playerSlot}`);
+    console.log(`Player ${socket.id} assigned to slot ${playerSlot}${isReconnection ? ' (reconnected)' : ''}`);
   }
 
   private handlePlayerAction(socket: Socket, action: ClientAction): void {
@@ -188,7 +205,16 @@ export class NetworkManager {
     this.playerSockets.delete(socket.id);
     this.rateLimiter.delete(socket.id);
     
-    this.gameEngine.removePlayer(socket.id);
+    // Update session last seen time but don't remove player immediately
+    for (const [persistentId, session] of this.playerSessions.entries()) {
+      if (session.socketId === socket.id) {
+        session.lastSeen = Date.now();
+        // Mark player as disconnected but keep in game for reconnection
+        this.gameEngine.markPlayerAsDisconnected(persistentId);
+        break;
+      }
+    }
+    
     this.sendGameStateToAll();
   }
 
@@ -226,5 +252,20 @@ export class NetworkManager {
   public shutdown(): void {
     this.playerSockets.clear();
     this.rateLimiter.clear();
+    this.playerSessions.clear();
+  }
+  
+  // Clean up old sessions (call this periodically)
+  public cleanupOldSessions(): void {
+    const now = Date.now();
+    const timeout = 5 * 60 * 1000; // 5 minutes
+    
+    for (const [persistentId, session] of this.playerSessions.entries()) {
+      if (now - session.lastSeen > timeout) {
+        this.playerSessions.delete(persistentId);
+        this.gameEngine.removePlayer(persistentId);
+        console.log(`Session timeout for player: ${persistentId}`);
+      }
+    }
   }
 }

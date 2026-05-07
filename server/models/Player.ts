@@ -1,4 +1,4 @@
-import { PlayerSlot, Unit } from './types';
+import { PlayerSlot, Position, Unit, UnitState, UnitType } from './types';
 import { UnitFactory } from './Unit';
 
 export class Player {
@@ -16,7 +16,7 @@ export class Player {
     this.isConnected = true;
   }
 
-  addUnit(unitType: import('./types').UnitType, position: import('./types').Position): Unit {
+  addUnit(unitType: UnitType, position: Position): Unit {
     const unitId = `${this.id}-${unitType}-${Date.now()}-${Math.random()}`;
     const unit = UnitFactory.createUnit(unitType, this.slot, position, unitId);
     this.units.push(unit);
@@ -52,7 +52,7 @@ export class Player {
     this.units.forEach(unit => {
       unit.position = { ...unit.originalPosition };
       unit.stats.hp = unit.stats.maxHp;
-      unit.state = 'SEEK' as import('./types').UnitState;
+      unit.state = 'SEEK' as UnitState;
       unit.targetId = undefined;
     });
   }
@@ -61,7 +61,7 @@ export class Player {
     this.units = [];
   }
 
-  canPlaceUnitAt(position: import('./types').Position): boolean {
+  canPlaceUnitAt(position: Position): boolean {
     // Check if position is within player's area
     if (this.slot === PlayerSlot.PLAYER_A) {
       return position.x >= 0 && position.x <= 3;

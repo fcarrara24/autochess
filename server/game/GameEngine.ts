@@ -1,5 +1,5 @@
-import { GameState, GamePhase, PlayerSlot, UnitType } from '../models';
-import { Grid, Player, UnitController } from '../models';
+import { GameState, GamePhase, PlayerSlot, UnitType, Unit, Position, Grid } from '../models';
+import { IGrid, Player, UnitController } from '../models';
 
 export class GameEngine {
   private gameState: GameState;
@@ -44,14 +44,25 @@ export class GameEngine {
     return { ...this.gameState };
   }
 
-  public addPlayer(playerId: string): PlayerSlot | null {
-    if (this.gameState.players.length >= 2) {
-      return null;
-    }
-
+  public addPlayer(playerId: string, isReconnection: boolean = false): PlayerSlot | null {
+    // Check for reconnection first
     const existingPlayer = this.gameState.players.find(p => p.id === playerId);
     if (existingPlayer) {
+      if (isReconnection) {
+        existingPlayer.isConnected = true;
+        console.log(`Player ${playerId} reconnected successfully`);
+        
+        // Resume game if both players are now connected
+        if (this.gameState.players.every(p => p.isConnected)) {
+          this.resumeGame();
+        }
+      }
       return existingPlayer.slot;
+    }
+
+    // Check if game is full (only for new players)
+    if (this.gameState.players.length >= 2) {
+      return null;
     }
 
     const slot = this.gameState.players.length === 0 ? PlayerSlot.PLAYER_A : PlayerSlot.PLAYER_B;
@@ -66,6 +77,14 @@ export class GameEngine {
   }
 
   public removePlayer(playerId: string): void {
+    const playerIndex = this.gameState.players.findIndex(p => p.id === playerId);
+    if (playerIndex !== -1) {
+      this.gameState.players[playerIndex].isConnected = false;
+      this.pauseGame();
+    }
+  }
+  
+  public markPlayerAsDisconnected(playerId: string): void {
     const playerIndex = this.gameState.players.findIndex(p => p.id === playerId);
     if (playerIndex !== -1) {
       this.gameState.players[playerIndex].isConnected = false;
@@ -208,7 +227,7 @@ export class GameEngine {
     }
   }
 
-  private moveUnit(unit: import('../models/types').Unit): void {
+  private moveUnit(unit: Unit): void {
     const validMoves = UnitController.getValidMovePositions(unit, this.gameState.grid);
     console.log(`Unit ${unit.owner} ${unit.type} at (${unit.position.x},${unit.position.y}) has ${validMoves.length} valid moves:`, validMoves);
     
@@ -216,7 +235,7 @@ export class GameEngine {
       return;
     }
 
-    let targetPosition: import('../models/types').Position | null = null;
+    let targetPosition: Position | null = null;
 
     if (unit.state === 'SEEK') {
       // Always find nearest enemy and move toward it
@@ -315,7 +334,7 @@ export class GameEngine {
     console.log(`Processing attacks for ${allUnits.length} units`);
     
     // All attacks happen simultaneously
-    const attacks: { attacker: import('../models/types').Unit; defender: import('../models/types').Unit; damage: number }[] = [];
+    const attacks: { attacker: Unit; defender: Unit; damage: number }[] = [];
     
     for (const unit of allUnits) {
       UnitController.updateUnitState(unit, this.gameState.grid, allUnits);
@@ -487,11 +506,11 @@ export class GameEngine {
     this.startPlacementPhase();
   }
 
-  private getAllUnits(): import('../models/types').Unit[] {
+  private getAllUnits(): Unit[] {
     return this.gameState.players.flatMap(p => p.units);
   }
 
-  private getAllAliveUnits(): import('../models/types').Unit[] {
+  private getAllAliveUnits(): Unit[] {
     return this.getAllUnits().filter(u => u.stats.hp > 0);
   }
 
@@ -500,7 +519,10 @@ export class GameEngine {
   }
 
   private resumeGame(): void {
-    this.gameState.isPaused = false;
+    if (this.gameState.isPaused && this.gameState.players.every(p => p.isConnected)) {
+      this.gameState.isPaused = false;
+      console.log('Game resumed - all players connected');
+    }
   }
 
   public shutdown(): void {

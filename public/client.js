@@ -3,7 +3,7 @@ class AutoBattlerClient {
         this.socket = io();
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
-        this.gridSize = { width: 8, height: 3 };
+        this.gridSize = { width: 9, height: 3 };
         this.tileSize = { width: 80, height: 80 };
         
         this.gameState = null;
@@ -23,17 +23,31 @@ class AutoBattlerClient {
             matchWinner: null
         };
         
+        this.persistentId = this.getPersistentId();
         this.setupEventListeners();
         this.connect();
         this.startRefreshLoop();
         this.setupPopupCloseHandlers();
     }
 
+    // Get persistent ID from cookie
+    getPersistentId() {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'autochess_session') {
+                return decodeURIComponent(value);
+            }
+        }
+        return null;
+    }
+
     setupEventListeners() {
         // Socket events
         this.socket.on('connect', () => {
             this.updateConnectionStatus('connected', 'Connected');
-            this.socket.emit('joinGame');
+            // Send persistent ID for reconnection
+            this.socket.emit('joinGame', { persistentId: this.persistentId });
         });
 
         this.socket.on('disconnect', () => {
@@ -42,6 +56,10 @@ class AutoBattlerClient {
 
         this.socket.on('playerSlot', (data) => {
             this.playerSlot = data.slot;
+            // Store persistent ID for future reconnections
+            if (data.persistentId) {
+                this.persistentId = data.persistentId;
+            }
         });
 
         this.socket.on('gameState', (message) => {
