@@ -9,6 +9,7 @@ export class NetworkManager {
   private rateLimiter: Map<string, number> = new Map();
   private readonly RATE_LIMIT_MS = 100; // Max 10 actions per second per client
 
+  // constructor
   constructor(io: SocketIOServer, gameEngine: GameEngine) {
     this.io = io;
     this.gameEngine = gameEngine;
@@ -21,6 +22,7 @@ export class NetworkManager {
     this.setupSocketHandlers();
   }
 
+  // setup socket actions upon connection
   private setupSocketHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
       console.log(`Player connected: ${socket.id}`);
@@ -201,7 +203,7 @@ export class NetworkManager {
     this.rateLimiter.set(socketId, now);
     return true;
   }
-
+  // general purpose method to call all clients
   private sendGameStateToAll(): void {
     const gameState = this.gameEngine.getGameState();
     const message: ServerMessage = {
