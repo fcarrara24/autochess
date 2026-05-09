@@ -1,4 +1,4 @@
-import { Unit, Position, UnitState } from '../../../models';
+import { Unit, Position, UnitState } from '../../models';
 
 export class BattleManager {
   private units: Unit[] = [];

@@ -1,6 +1,6 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { GameEngine } from '../game/GameEngine';
-import { ClientAction, ServerMessage, GamePhase, UnitType } from '../models';
+import { ClientAction, ServerMessage, GamePhase, UnitType, PlayerSlot } from '../models';
 import { IGrid } from '../models';
 
 export class NetworkManager {
@@ -29,9 +29,9 @@ export class NetworkManager {
     this.io.on('connection', (socket: Socket) => {
       console.log(`Player connected: ${socket.id}`);
 
-      // Handle player joining with optional persistent ID
-      socket.on('joinGame', (data: { persistentId?: string }) => {
-        this.handlePlayerJoin(socket, data?.persistentId);
+      // Handle player joining with optional persistent ID and slot
+      socket.on('joinGame', (data: { persistentId?: string, requestedSlot?: string }) => {
+        this.handlePlayerJoin(socket, data?.persistentId, data?.requestedSlot);
       });
 
       // Handle client actions
@@ -46,7 +46,7 @@ export class NetworkManager {
     });
   }
 
-  private handlePlayerJoin(socket: Socket, persistentId?: string): void {
+  private handlePlayerJoin(socket: Socket, persistentId?: string, requestedSlot?: string): void {
     let playerId = socket.id;
     let isReconnection = false;
     
@@ -61,7 +61,13 @@ export class NetworkManager {
       }
     }
     
-    const playerSlot = this.gameEngine.addPlayer(playerId, isReconnection);
+    // Convert requestedSlot string to PlayerSlot enum if provided
+    let slotEnum: PlayerSlot | undefined = undefined;
+    if (requestedSlot) {
+      slotEnum = requestedSlot === 'A' ? PlayerSlot.PLAYER_A : requestedSlot === 'B' ? PlayerSlot.PLAYER_B : undefined;
+    }
+    
+    const playerSlot = this.gameEngine.addPlayer(playerId, isReconnection, slotEnum);
     
     if (playerSlot === null) {
       // Game is full
@@ -79,7 +85,7 @@ export class NetworkManager {
     // Send player their slot and persistent ID
     socket.emit('playerSlot', { slot: playerSlot, persistentId: playerId });
     
-    console.log(`Player ${socket.id} assigned to slot ${playerSlot}${isReconnection ? ' (reconnected)' : ''}`);
+    console.log(`Player ${socket.id} assigned to slot ${playerSlot}${isReconnection ? ' (reconnected)' : ''}${requestedSlot ? ` (requested: ${requestedSlot})` : ''}`);
   }
 
   private handlePlayerAction(socket: Socket, action: ClientAction): void {

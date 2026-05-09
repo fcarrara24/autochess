@@ -1,6 +1,6 @@
 import { Socket } from 'socket.io';
 import { GameEngine } from '../../game/GameEngine';
-import { ClientAction, GamePhase } from '../../models';
+import { ClientAction, GamePhase, PlayerSlot } from '../../models';
 
 export class PlayerHandlers {
   constructor(
@@ -9,7 +9,7 @@ export class PlayerHandlers {
     private playerSessions: Map<string, { socketId: string; lastSeen: number }>
   ) {}
 
-  handlePlayerJoin(socket: Socket, persistentId?: string): string | null {
+  handlePlayerJoin(socket: Socket, persistentId?: string, requestedSlot?: string): string | null {
     let playerId = socket.id;
     let isReconnection = false;
     
@@ -24,7 +24,13 @@ export class PlayerHandlers {
       }
     }
     
-    const playerSlot = this.gameEngine.addPlayer(playerId, isReconnection);
+    // Convert requestedSlot string to PlayerSlot enum if provided
+    let slotEnum: PlayerSlot | undefined = undefined;
+    if (requestedSlot) {
+      slotEnum = requestedSlot === 'A' ? PlayerSlot.PLAYER_A : requestedSlot === 'B' ? PlayerSlot.PLAYER_B : undefined;
+    }
+    
+    const playerSlot = this.gameEngine.addPlayer(playerId, isReconnection, slotEnum);
     
     if (playerSlot === null) {
       // Game is full

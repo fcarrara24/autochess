@@ -3,20 +3,27 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NetworkManager = void 0;
 const models_1 = require("../models");
 class NetworkManager {
+    // constructor
     constructor(io, gameEngine) {
         this.playerSockets = new Map();
         this.rateLimiter = new Map();
+        this.playerSessions = new Map();
         this.RATE_LIMIT_MS = 100; // Max 10 actions per second per client
         this.io = io;
         this.gameEngine = gameEngine;
+        // Set up update callback to broadcast state changes
+        this.gameEngine.setUpdateCallback(() => {
+            this.sendGameStateToAll();
+        });
         this.setupSocketHandlers();
     }
+    // setup socket actions upon connection
     setupSocketHandlers() {
         this.io.on('connection', (socket) => {
             console.log(`Player connected: ${socket.id}`);
-            // Handle player joining
-            socket.on('joinGame', () => {
-                this.handlePlayerJoin(socket);
+            // Handle player joining with optional persistent ID and slot
+            socket.on('joinGame', (data) => {
+                this.handlePlayerJoin(socket, data?.persistentId, data?.requestedSlot);
             });
             // Handle client actions
             socket.on('playerAction', (action) => {
@@ -28,8 +35,25 @@ class NetworkManager {
             });
         });
     }
-    handlePlayerJoin(socket) {
-        const playerSlot = this.gameEngine.addPlayer(socket.id);
+    handlePlayerJoin(socket, persistentId, requestedSlot) {
+        let playerId = socket.id;
+        let isReconnection = false;
+        // Check if this is a reconnection with persistent ID
+        if (persistentId) {
+            const session = this.playerSessions.get(persistentId);
+            if (session && Date.now() - session.lastSeen < 5 * 60 * 1000) { // 5 minutes timeout
+                // This is a valid reconnection
+                playerId = persistentId;
+                isReconnection = true;
+                console.log(`Player reconnection detected: ${persistentId} -> ${socket.id}`);
+            }
+        }
+        // Convert requestedSlot string to PlayerSlot enum if provided
+        let slotEnum = undefined;
+        if (requestedSlot) {
+            slotEnum = requestedSlot === 'A' ? models_1.PlayerSlot.PLAYER_A : requestedSlot === 'B' ? models_1.PlayerSlot.PLAYER_B : undefined;
+        }
+        const playerSlot = this.gameEngine.addPlayer(playerId, isReconnection, slotEnum);
         if (playerSlot === null) {
             // Game is full
             socket.emit('error', { message: 'Game is full' });
@@ -37,11 +61,12 @@ class NetworkManager {
             return;
         }
         this.playerSockets.set(socket.id, socket);
+        this.playerSessions.set(playerId, { socketId: socket.id, lastSeen: Date.now() });
         // Send initial game state
         this.sendGameStateToAll();
-        // Send player their slot
-        socket.emit('playerSlot', { slot: playerSlot });
-        console.log(`Player ${socket.id} assigned to slot ${playerSlot}`);
+        // Send player their slot and persistent ID
+        socket.emit('playerSlot', { slot: playerSlot, persistentId: playerId });
+        console.log(`Player ${socket.id} assigned to slot ${playerSlot}${isReconnection ? ' (reconnected)' : ''}${requestedSlot ? ` (requested: ${requestedSlot})` : ''}`);
     }
     handlePlayerAction(socket, action) {
         // Rate limiting
@@ -148,7 +173,15 @@ class NetworkManager {
         console.log(`Player disconnected: ${socket.id}`);
         this.playerSockets.delete(socket.id);
         this.rateLimiter.delete(socket.id);
-        this.gameEngine.removePlayer(socket.id);
+        // Update session last seen time but don't remove player immediately
+        for (const [persistentId, session] of this.playerSessions.entries()) {
+            if (session.socketId === socket.id) {
+                session.lastSeen = Date.now();
+                // Mark player as disconnected but keep in game for reconnection
+                this.gameEngine.markPlayerAsDisconnected(persistentId);
+                break;
+            }
+        }
         this.sendGameStateToAll();
     }
     checkRateLimit(socketId) {
@@ -160,6 +193,7 @@ class NetworkManager {
         this.rateLimiter.set(socketId, now);
         return true;
     }
+    // general purpose method to call all clients
     sendGameStateToAll() {
         const gameState = this.gameEngine.getGameState();
         const message = {
@@ -178,6 +212,19 @@ class NetworkManager {
     shutdown() {
         this.playerSockets.clear();
         this.rateLimiter.clear();
+        this.playerSessions.clear();
+    }
+    // Clean up old sessions (call this periodically)
+    cleanupOldSessions() {
+        const now = Date.now();
+        const timeout = 5 * 60 * 1000; // 5 minutes
+        for (const [persistentId, session] of this.playerSessions.entries()) {
+            if (now - session.lastSeen > timeout) {
+                this.playerSessions.delete(persistentId);
+                this.gameEngine.removePlayer(persistentId);
+                console.log(`Session timeout for player: ${persistentId}`);
+            }
+        }
     }
 }
 exports.NetworkManager = NetworkManager;

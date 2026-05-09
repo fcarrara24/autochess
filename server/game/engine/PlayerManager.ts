@@ -1,5 +1,5 @@
-import { PlayerSlot } from '../../../models';
-import { Player } from '../../../models/Player';
+import { PlayerSlot } from '../../models';
+import { Player } from '../../models/Player';
 
 export class PlayerManager {
   private players: Player[] = [];

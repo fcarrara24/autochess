@@ -4,6 +4,7 @@ const http_1 = require("http");
 const socket_io_1 = require("socket.io");
 const fs_1 = require("fs");
 const path_1 = require("path");
+const uuid_1 = require("uuid");
 const GameEngine_1 = require("./game/GameEngine");
 const NetworkManager_1 = require("./network/NetworkManager");
 const PORT = process.env.PORT || 3000;
@@ -17,6 +18,37 @@ const getContentType = (filePath) => {
         default: return 'text/plain';
     }
 };
+// Cookie setup
+const COOKIE_NAME = 'autochess_session';
+const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+// Simple cookie parsing function
+const parseCookies = (cookieHeader) => {
+    const cookies = {};
+    if (!cookieHeader)
+        return cookies;
+    cookieHeader.split(';').forEach(cookie => {
+        const [name, value] = cookie.trim().split('=');
+        if (name && value) {
+            cookies[name] = decodeURIComponent(value);
+        }
+    });
+    return cookies;
+};
+// Helper function to get or create player ID from cookies
+const getPlayerIdFromRequest = (req) => {
+    const cookies = parseCookies(req.headers.cookie);
+    if (cookies[COOKIE_NAME]) {
+        return cookies[COOKIE_NAME];
+    }
+    // Generate new player ID if not exists
+    const newPlayerId = (0, uuid_1.v4)();
+    return newPlayerId;
+};
+// Helper function to set player ID cookie
+const setPlayerIdCookie = (res, playerId) => {
+    const cookieValue = `${COOKIE_NAME}=${encodeURIComponent(playerId)}; Max-Age=${COOKIE_MAX_AGE / 1000}; HttpOnly; SameSite=Lax; Path=/`;
+    res.setHeader('Set-Cookie', cookieValue);
+};
 const server = (0, http_1.createServer)((req, res) => {
     let filePath = `${__dirname}/../public${req.url}`;
     // Default to index.html for root path
@@ -25,6 +57,11 @@ const server = (0, http_1.createServer)((req, res) => {
     }
     if ((0, fs_1.existsSync)(filePath)) {
         const content = (0, fs_1.readFileSync)(filePath);
+        // Set player ID cookie for HTML files
+        if (filePath.endsWith('.html')) {
+            const playerId = getPlayerIdFromRequest(req);
+            setPlayerIdCookie(res, playerId);
+        }
         res.writeHead(200, { 'Content-Type': getContentType(filePath) });
         res.end(content);
     }
@@ -37,9 +74,12 @@ const server = (0, http_1.createServer)((req, res) => {
 const io = new socket_io_1.Server(server, {
     cors: {
         origin: "*",
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
+// Store player sessions for reconnection
+const playerSessions = new Map();
 // Initialize game engine
 const gameEngine = new GameEngine_1.GameEngine();
 // Initialize network manager

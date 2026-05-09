@@ -44,7 +44,7 @@ export class GameEngine {
     return { ...this.gameState };
   }
 
-  public addPlayer(playerId: string, isReconnection: boolean = false): PlayerSlot | null {
+  public addPlayer(playerId: string, isReconnection: boolean = false, requestedSlot?: PlayerSlot): PlayerSlot | null {
     // Check for reconnection first
     const existingPlayer = this.gameState.players.find(p => p.id === playerId);
     if (existingPlayer) {
@@ -60,12 +60,37 @@ export class GameEngine {
       return existingPlayer.slot;
     }
 
-    // Check if game is full (only for new players)
-    if (this.gameState.players.length >= 2) {
-      return null;
+    let slot: PlayerSlot;
+
+    // If player requested a specific slot
+    if (requestedSlot) {
+      const playerInRequestedSlot = this.gameState.players.find(p => p.slot === requestedSlot);
+      
+      if (playerInRequestedSlot) {
+        // Slot is occupied, steal it from the current player
+        console.log(`Player ${playerId} is stealing slot ${requestedSlot} from player ${playerInRequestedSlot.id}`);
+        
+        // Disconnect the current player
+        playerInRequestedSlot.isConnected = false;
+        
+        // Remove the old player and add the new one
+        const playerIndex = this.gameState.players.findIndex(p => p.id === playerInRequestedSlot.id);
+        this.gameState.players.splice(playerIndex, 1);
+        
+        slot = requestedSlot;
+      } else {
+        // Slot is free, assign it
+        slot = requestedSlot;
+      }
+    } else {
+      // No specific slot requested, assign automatically
+      if (this.gameState.players.length >= 2) {
+        return null; // Game full and no specific slot requested
+      }
+      
+      slot = this.gameState.players.length === 0 ? PlayerSlot.PLAYER_A : PlayerSlot.PLAYER_B;
     }
 
-    const slot = this.gameState.players.length === 0 ? PlayerSlot.PLAYER_A : PlayerSlot.PLAYER_B;
     const player = new Player(playerId, slot);
     this.gameState.players.push(player);
 
