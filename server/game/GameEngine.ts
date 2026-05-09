@@ -5,7 +5,7 @@ export class GameEngine {
   private gameState: GameState;
   private gameLoopInterval: NodeJS.Timeout | null = null;
   private updateCallback?: () => void;
-  private readonly TICK_RATE = 500; // 2 ticks per second (slower)
+  private readonly TICK_RATE = 1000; // 1 tick per second
   private readonly PLACEMENT_TIME = 20000; // 20 seconds
   private readonly BATTLE_TIME = 10000; // 10 seconds
 
