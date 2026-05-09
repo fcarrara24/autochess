@@ -9,8 +9,8 @@
             margin: 0;
             padding: 10px;
             font-family: Arial, sans-serif;
-            background-color: #1a1a1a;
-            color: white;
+            background-color: #0a0a0a;
+            color: #ffffff;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -38,10 +38,10 @@
 
         #unitPanel {
             width: 100%;
-            background-color: #2a2a2a;
+            background-color: #1a1a1a;
             padding: 15px;
             border-radius: 8px;
-            border: 2px solid #444;
+            border: 2px solid #666;
         }
 
         @media (min-width: 768px) {
@@ -56,30 +56,85 @@
         }
 
         .unit-option {
-            background-color: #3a3a3a;
-            border: 2px solid #555;
+            background-color: #2a2a2a;
+            border: 2px solid #666;
             border-radius: 4px;
             padding: 10px;
             margin: 10px 0;
             cursor: pointer;
             transition: all 0.2s;
+            position: relative;
         }
 
         .unit-option:hover {
-            background-color: #4a4a4a;
+            background-color: #3a3a3a;
             border-color: #4CAF50;
+            transform: translateY(-2px);
         }
 
         .unit-option.selected {
             background-color: #4CAF50;
             border-color: #4CAF50;
-            color: black;
+            color: #000000;
+            font-weight: bold;
         }
 
         .unit-stats {
             font-size: 12px;
             margin-top: 5px;
-            color: #ccc;
+            color: #e0e0e0;
+        }
+
+        .unit-ability {
+            font-size: 10px;
+            margin-top: 3px;
+            color: #FFD700;
+            font-weight: bold;
+        }
+
+        .unit-icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            font-weight: bold;
+            margin-right: 8px;
+            font-size: 12px;
+        }
+
+        .unit-icon.melee { background-color: #2196F3; color: white; }
+        .unit-icon.ranged { background-color: #9C27B0; color: white; }
+        .unit-icon.splasher { background-color: #FF9800; color: white; }
+        .unit-icon.tank { background-color: #795548; color: white; }
+
+        .help-section {
+            background-color: #0f0f0f;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 15px 0;
+            font-size: 11px;
+        }
+
+        .help-section h4 {
+            margin: 0 0 8px 0;
+            color: #4CAF50;
+            font-size: 12px;
+        }
+
+        .shortcut {
+            margin: 3px 0;
+            color: #e0e0e0;
+            display: flex;
+            align-items: center;
+        }
+
+        .shortcut::before {
+            content: "⌨️";
+            margin-right: 5px;
+            font-size: 10px;
         }
 
         #gameArea {
@@ -90,13 +145,14 @@
         }
 
         #gameInfo {
-            background-color: #2a2a2a;
+            background-color: #1a1a1a;
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
             text-align: center;
             min-width: 100%;
             box-sizing: border-box;
+            border: 2px solid #666;
         }
 
         @media (min-width: 768px) {
@@ -257,23 +313,37 @@
     <div id="drawPopup">PAREGGIO!</div>
     
     <div id="gameContainer">
-        <div id="unitPanel">
+        <div id="unitPanel" role="region" aria-label="Unit Selection">
             <h3>Units</h3>
-            <div class="unit-option" data-unit-type="melee">
-                <div>Melee Unit</div>
+            <div class="help-section">
+                <h4>Keyboard Shortcuts:</h4>
+                <div class="shortcut">1 - Melee Unit</div>
+                <div class="shortcut">2 - Ranged Unit</div>
+                <div class="shortcut">3 - Splasher Unit</div>
+                <div class="shortcut">4 - Tank Unit</div>
+                <div class="shortcut">ESC - Clear Selection</div>
+                <div class="shortcut">Arrow Keys - Navigate Units</div>
+                <div class="shortcut">Enter/Space - Select Unit</div>
+            </div>
+            <div class="unit-option" data-unit-type="melee" tabindex="0" role="button" aria-label="Melee Unit - High damage, close range">
+                <div><span class="unit-icon melee">M</span>Melee Unit</div>
                 <div class="unit-stats">HP: 30 | DMG: 10 | Range: 1</div>
+                <div class="unit-ability">High damage, close combat</div>
             </div>
-            <div class="unit-option" data-unit-type="ranged">
-                <div>Ranged Unit</div>
+            <div class="unit-option" data-unit-type="ranged" tabindex="0" role="button" aria-label="Ranged Unit - Medium damage, long range">
+                <div><span class="unit-icon ranged">R</span>Ranged Unit</div>
                 <div class="unit-stats">HP: 20 | DMG: 6 | Range: 2</div>
+                <div class="unit-ability">Medium damage, long range</div>
             </div>
-            <div class="unit-option" data-unit-type="splasher">
-                <div>Splasher Unit</div>
+            <div class="unit-option" data-unit-type="splasher" tabindex="0" role="button" aria-label="Splasher Unit - Area damage, 3x3 AoE">
+                <div><span class="unit-icon splasher">S</span>Splasher Unit</div>
                 <div class="unit-stats">HP: 15 | DMG: 6 | Range: 1 | AoE: 3x3</div>
+                <div class="unit-ability">Area damage to multiple enemies</div>
             </div>
-            <div class="unit-option" data-unit-type="tank">
-                <div>Tank Unit</div>
+            <div class="unit-option" data-unit-type="tank" tabindex="0" role="button" aria-label="Tank Unit - High HP, defensive">
+                <div><span class="unit-icon tank">T</span>Tank Unit</div>
                 <div class="unit-stats">HP: 45 | DMG: 7 | Range: 1</div>
+                <div class="unit-ability">High HP, defensive role</div>
             </div>
         </div>
         
