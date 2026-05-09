@@ -1,5 +1,6 @@
 import { UnitType, UnitState, PlayerSlot, Position, UnitStats, Unit } from './types';
 import { Grid } from './Grid';
+import { UNIT_STATS } from './UnitStats';
 
 export class UnitFactory {
   static createUnit(type: UnitType, owner: PlayerSlot, position: Position, id: string): Unit {
@@ -17,24 +18,11 @@ export class UnitFactory {
   }
 
   private static getUnitStats(type: UnitType): UnitStats {
-    switch (type) {
-      case UnitType.MELEE:
-        return {
-          hp: 30,
-          maxHp: 30,
-          damage: 10,
-          range: 1
-        };
-      case UnitType.RANGED:
-        return {
-          hp: 20,
-          maxHp: 20,
-          damage: 6,
-          range: 2
-        };
-      default:
-        throw new Error(`Unknown unit type: ${type}`);
+    const stats = UNIT_STATS[type];
+    if (!stats) {
+      throw new Error(`Unknown unit type: ${type}`);
     }
+    return { ...stats };
   }
 }
 

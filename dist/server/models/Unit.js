@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UnitController = exports.UnitFactory = void 0;
 const types_1 = require("./types");
+const UnitStats_1 = require("./UnitStats");
 class UnitFactory {
     static createUnit(type, owner, position, id) {
         const stats = this.getUnitStats(type);
@@ -17,24 +18,11 @@ class UnitFactory {
         };
     }
     static getUnitStats(type) {
-        switch (type) {
-            case types_1.UnitType.MELEE:
-                return {
-                    hp: 30,
-                    maxHp: 30,
-                    damage: 10,
-                    range: 1
-                };
-            case types_1.UnitType.RANGED:
-                return {
-                    hp: 20,
-                    maxHp: 20,
-                    damage: 6,
-                    range: 2
-                };
-            default:
-                throw new Error(`Unknown unit type: ${type}`);
+        const stats = UnitStats_1.UNIT_STATS[type];
+        if (!stats) {
+            throw new Error(`Unknown unit type: ${type}`);
         }
+        return { ...stats };
     }
 }
 exports.UnitFactory = UnitFactory;

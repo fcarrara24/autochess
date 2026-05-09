@@ -322,7 +322,7 @@ class AutoBattlerClient {
     drawUnit(pos, unit, isOwnUnit) {
         const centerX = pos.x + this.tileSize.width / 2;
         const centerY = pos.y + this.tileSize.height / 2;
-        const radius = 25;
+        const radius = unit.type === 'tank' ? 28 : 25; // Tanks are slightly larger
 
         // Draw unit circle
         this.ctx.beginPath();
@@ -339,13 +339,42 @@ class AutoBattlerClient {
         this.ctx.strokeStyle = isOwnUnit ? '#fff' : '#ccc';
         this.ctx.lineWidth = isOwnUnit ? 3 : 2;
         this.ctx.stroke();
+        
+        // Draw AoE indicator for splasher units
+        if (unit.type === 'splasher') {
+            this.ctx.strokeStyle = '#FFD700'; // Gold color for AoE
+            this.ctx.lineWidth = 1;
+            this.ctx.setLineDash([2, 2]);
+            this.ctx.beginPath();
+            this.ctx.arc(centerX, centerY, radius + 5, 0, Math.PI * 2);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+        }
 
         // Draw unit type
         this.ctx.fillStyle = '#fff';
         this.ctx.font = 'bold 12px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(unit.type === 'melee' ? 'M' : 'R', centerX, centerY - 5);
+        
+        let unitLabel;
+        switch (unit.type) {
+            case 'melee':
+                unitLabel = 'M';
+                break;
+            case 'ranged':
+                unitLabel = 'R';
+                break;
+            case 'splasher':
+                unitLabel = 'S';
+                break;
+            case 'tank':
+                unitLabel = 'T';
+                break;
+            default:
+                unitLabel = '?';
+        }
+        this.ctx.fillText(unitLabel, centerX, centerY - 5);
 
         // Draw HP bar
         const hpPercentage = unit.stats.hp / unit.stats.maxHp;

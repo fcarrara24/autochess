@@ -5,6 +5,8 @@ var UnitType;
 (function (UnitType) {
     UnitType["MELEE"] = "melee";
     UnitType["RANGED"] = "ranged";
+    UnitType["SPLASHER"] = "splasher";
+    UnitType["TANK"] = "tank";
 })(UnitType || (exports.UnitType = UnitType = {}));
 var UnitState;
 (function (UnitState) {

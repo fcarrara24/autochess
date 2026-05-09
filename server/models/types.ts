@@ -3,7 +3,9 @@ import { Player } from './Player';
 
 export enum UnitType {
   MELEE = 'melee',
-  RANGED = 'ranged'
+  RANGED = 'ranged',
+  SPLASHER = 'splasher',
+  TANK = 'tank'
 }
 
 
@@ -34,6 +36,7 @@ export interface UnitStats {
   maxHp: number;
   damage: number;
   range: number; // Manhattan distance
+  aoeRadius: number; // Area of effect radius (1 for single target, 3 for 3x3 area)
 }
 
 export interface Unit {

@@ -90,10 +90,53 @@ export class BattleManager {
   }
 
   private performAttack(attacker: Unit, target: Unit): void {
-    target.stats.hp -= attacker.stats.damage;
-    if (target.stats.hp < 0) {
-      target.stats.hp = 0;
+    if (attacker.stats.aoeRadius === 1) {
+      // Single target attack
+      target.stats.hp -= attacker.stats.damage;
+      if (target.stats.hp < 0) {
+        target.stats.hp = 0;
+      }
+    } else {
+      // AoE attack
+      const targets = this.getAoETargets(attacker, target);
+      for (const aoeTarget of targets) {
+        aoeTarget.stats.hp -= attacker.stats.damage;
+        if (aoeTarget.stats.hp < 0) {
+          aoeTarget.stats.hp = 0;
+        }
+      }
     }
+  }
+
+  private getAoETargets(attacker: Unit, centerTarget: Unit): Unit[] {
+    const targets: Unit[] = [];
+    const radius = attacker.stats.aoeRadius;
+    
+    // Calculate AoE area (3x3 for splasher)
+    for (let dx = -Math.floor(radius/2); dx <= Math.floor(radius/2); dx++) {
+      for (let dy = -Math.floor(radius/2); dy <= Math.floor(radius/2); dy++) {
+        const pos = {
+          x: centerTarget.position.x + dx,
+          y: centerTarget.position.y + dy
+        };
+        
+        // Check if position is valid and within grid bounds
+        if (this.isValidPosition(pos)) {
+          const unit = this.units.find(u => 
+            u.position.x === pos.x && 
+            u.position.y === pos.y && 
+            u.owner !== attacker.owner &&
+            u.stats.hp > 0
+          );
+          
+          if (unit) {
+            targets.push(unit);
+          }
+        }
+      }
+    }
+    
+    return targets;
   }
 
   getTickCount(): number {
