@@ -141,7 +141,7 @@ class AutoBattlerClient {
         document.addEventListener('keydown', (e) => {
             if (e.key === '1') this.selectUnitByType('melee');
             if (e.key === '2') this.selectUnitByType('ranged');
-            if (e.key === '3') this.selectUnitByType('splasher');
+            if (e.key === '3') this.selectUnitByType('thrower');
             if (e.key === '4') this.selectUnitByType('tank');
             if (e.key === 'Escape') this.clearSelection();
         });
@@ -342,6 +342,9 @@ class AutoBattlerClient {
         // Draw units
         this.drawUnits();
 
+        // Draw AoE effects
+        this.drawAoEEffects();
+
         // Draw phase overlay
         if (this.gameState.phase === 'PLACEMENT') {
             this.drawPlacementOverlay();
@@ -463,8 +466,8 @@ class AutoBattlerClient {
         this.ctx.lineWidth = isOwnUnit ? 3 : 2;
         this.ctx.stroke();
         
-        // Draw AoE indicator for splasher units
-        if (unit.type === 'splasher') {
+        // Draw AoE indicator for thrower units
+        if (unit.type === 'thrower') {
             this.ctx.strokeStyle = '#FFD700'; // Gold color for AoE
             this.ctx.lineWidth = 2;
             this.ctx.setLineDash([3, 3]);
@@ -505,11 +508,11 @@ class AutoBattlerClient {
             case 'ranged':
                 unitLabel = 'R';
                 break;
-            case 'splasher':
-                unitLabel = 'S';
+            case 'thrower':
+                unitLabel = 'Th';
                 break;
             case 'tank':
-                unitLabel = 'T';
+                unitLabel = 'Tk';
                 break;
             default:
                 unitLabel = '?';
@@ -529,6 +532,64 @@ class AutoBattlerClient {
         this.ctx.fillStyle = hpPercentage > 0.5 ? '#4CAF50' : 
                             hpPercentage > 0.25 ? '#FF9800' : '#f44336';
         this.ctx.fillRect(barX, barY, barWidth * hpPercentage, barHeight);
+    }
+
+    drawAoEEffects() {
+        if (!this.gameState || this.gameState.phase !== 'BATTLE') return;
+        
+        // Check for thrower units and draw AoE indicators during battle
+        for (const player of this.gameState.players) {
+            for (const unit of player.units) {
+                if (unit.type === 'thrower' && unit.state === 'ATTACK' && unit.targetId) {
+                    const target = this.findUnitById(unit.targetId);
+                    if (target) {
+                        const pos = this.gridToScreen(target.position.x, target.position.y);
+                        
+                        // Draw AoE explosion effect
+                        this.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+                        this.ctx.strokeStyle = '#FFD700';
+                        this.ctx.lineWidth = 3;
+                        
+                        // Draw expanding circles for explosion effect
+                        for (let i = 1; i <= 3; i++) {
+                            this.ctx.globalAlpha = 0.3 / i;
+                            this.ctx.beginPath();
+                            this.ctx.arc(
+                                pos.x + this.tileSize.width / 2,
+                                pos.y + this.tileSize.height / 2,
+                                10 * i,
+                                0,
+                                Math.PI * 2
+                            );
+                            this.ctx.stroke();
+                        }
+                        this.ctx.globalAlpha = 1.0;
+                        
+                        // Draw AoE area highlight
+                        this.ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
+                        this.ctx.fillRect(
+                            pos.x - this.tileSize.width,
+                            pos.y - this.tileSize.height,
+                            this.tileSize.width * 3,
+                            this.tileSize.height * 3
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    findUnitById(unitId) {
+        if (!this.gameState) return null;
+        
+        for (const player of this.gameState.players) {
+            for (const unit of player.units) {
+                if (unit.id === unitId) {
+                    return unit;
+                }
+            }
+        }
+        return null;
     }
 
     drawPlacementOverlay() {
@@ -627,12 +688,18 @@ class AutoBattlerClient {
     }
     
     startRefreshLoop() {
-        // Refresh every second in placement phase
+        // Refresh every second in placement phase, more frequently in battle
         setInterval(() => {
-            if (this.gameState && this.gameState.phase === 'PLACEMENT') {
-                this.render();
-                this.updateUI();
-                this.lastRefreshTime = Date.now();
+            if (this.gameState) {
+                if (this.gameState.phase === 'PLACEMENT') {
+                    this.render();
+                    this.updateUI();
+                    this.lastRefreshTime = Date.now();
+                } else if (this.gameState.phase === 'BATTLE') {
+                    // More frequent refresh during battle for HP updates
+                    this.render();
+                    this.updateUI();
+                }
             }
         }, this.placementRefreshInterval);
     }

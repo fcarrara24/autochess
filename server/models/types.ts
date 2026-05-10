@@ -4,7 +4,7 @@ import { Player } from './Player';
 export enum UnitType {
   MELEE = 'melee',
   RANGED = 'ranged',
-  SPLASHER = 'splasher',
+  THROWER = 'thrower',
   TANK = 'tank'
 }
 

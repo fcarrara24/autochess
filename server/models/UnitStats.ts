@@ -23,7 +23,7 @@ export const UNIT_STATS: Record<UnitType, UnitStatsConfig> = {
     range: 2,
     aoeRadius: 1
   },
-  [UnitType.SPLASHER]: {
+  [UnitType.THROWER]: {
     hp: 15,
     maxHp: 15,
     damage: 6,

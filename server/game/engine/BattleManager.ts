@@ -97,12 +97,21 @@ export class BattleManager {
         target.stats.hp = 0;
       }
     } else {
-      // AoE attack
+      // AoE attack - damage center target first
+      target.stats.hp -= attacker.stats.damage;
+      if (target.stats.hp < 0) {
+        target.stats.hp = 0;
+      }
+      
+      // Then damage surrounding units
       const targets = this.getAoETargets(attacker, target);
       for (const aoeTarget of targets) {
-        aoeTarget.stats.hp -= attacker.stats.damage;
-        if (aoeTarget.stats.hp < 0) {
-          aoeTarget.stats.hp = 0;
+        // Don't damage the center target twice
+        if (aoeTarget.id !== target.id) {
+          aoeTarget.stats.hp -= attacker.stats.damage;
+          if (aoeTarget.stats.hp < 0) {
+            aoeTarget.stats.hp = 0;
+          }
         }
       }
     }
@@ -112,13 +121,19 @@ export class BattleManager {
     const targets: Unit[] = [];
     const radius = attacker.stats.aoeRadius;
     
-    // Calculate AoE area (3x3 for splasher)
-    for (let dx = -Math.floor(radius/2); dx <= Math.floor(radius/2); dx++) {
-      for (let dy = -Math.floor(radius/2); dy <= Math.floor(radius/2); dy++) {
+    // For 3x3 AoE, check positions from -1 to +1
+    const range = Math.floor(radius / 2);
+    
+    // Calculate AoE area (3x3 for thrower)
+    for (let dx = -range; dx <= range; dx++) {
+      for (let dy = -range; dy <= range; dy++) {
         const pos = {
           x: centerTarget.position.x + dx,
           y: centerTarget.position.y + dy
         };
+        
+        // Skip center position (handled separately)
+        if (dx === 0 && dy === 0) continue;
         
         // Check if position is valid and within grid bounds
         if (this.isValidPosition(pos)) {
