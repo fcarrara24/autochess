@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'fs';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { GameEngine } from './game/GameEngine';
-import { NetworkManager } from './network/NetworkManager';
+import { NetworkManager } from './network/NetworkManagerNew';
 
 const PORT = process.env.PORT || 3000;
 

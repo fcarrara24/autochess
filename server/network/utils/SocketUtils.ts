@@ -19,7 +19,7 @@ export class SocketUtils {
     
     io.emit('error', errorMessage);
   }
-
+  
   static setupSocketHandlers(
     io: SocketIOServer,
     playerHandlers: any,
@@ -41,7 +41,12 @@ export class SocketUtils {
 
       // Handle client actions
       socket.on('playerAction', (action: any) => {
-        playerHandlers.handlePlayerAction(socket, action, rateLimiter, 100);
+        const success = playerHandlers.handlePlayerAction(socket, action, rateLimiter, 100);
+
+        if (success) {
+          const gamestate = playerHandlers.getGameState();
+          this.sendGameStateToAll(io, gamestate);
+        }
       });
 
       // Handle disconnection

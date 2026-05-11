@@ -203,4 +203,10 @@ export class PlayerHandlers {
       }
     }
   }
+
+
+  getGameState() {
+    return this.gameEngine.getGameState();
+  }
+  
 }
