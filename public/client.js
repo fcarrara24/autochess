@@ -3,7 +3,7 @@ class AutoBattlerClient {
         this.socket = io();
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
-        this.gridSize = { width: 8, height: 3 };
+        this.gridSize = { width: 9, height: 3 };
         this.tileSize = { width: 80, height: 80 };
         
         this.gameState = null;
@@ -23,17 +23,31 @@ class AutoBattlerClient {
             matchWinner: null
         };
         
+        this.persistentId = this.getPersistentId();
         this.setupEventListeners();
         this.connect();
         this.startRefreshLoop();
         this.setupPopupCloseHandlers();
     }
 
+    // Get persistent ID from cookie
+    getPersistentId() {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'autochess_session') {
+                return decodeURIComponent(value);
+            }
+        }
+        return null;
+    }
+
     setupEventListeners() {
         // Socket events
         this.socket.on('connect', () => {
             this.updateConnectionStatus('connected', 'Connected');
-            this.socket.emit('joinGame');
+            // Send persistent ID for reconnection
+            this.socket.emit('joinGame', { persistentId: this.persistentId });
         });
 
         this.socket.on('disconnect', () => {
@@ -42,6 +56,10 @@ class AutoBattlerClient {
 
         this.socket.on('playerSlot', (data) => {
             this.playerSlot = data.slot;
+            // Store persistent ID for future reconnections
+            if (data.persistentId) {
+                this.persistentId = data.persistentId;
+            }
         });
 
         this.socket.on('gameState', (message) => {
@@ -93,12 +111,23 @@ class AutoBattlerClient {
 
         // Unit selection
         document.querySelectorAll('.unit-option').forEach(option => {
+            // Mouse selection
             option.addEventListener('click', (e) => {
-                document.querySelectorAll('.unit-option').forEach(opt => 
-                    opt.classList.remove('selected')
-                );
-                option.classList.add('selected');
-                this.selectedUnitType = option.dataset.unitType;
+                this.selectUnit(option);
+            });
+            
+            // Keyboard navigation
+            option.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.selectUnit(option);
+                } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    this.focusNextUnit(option);
+                } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    this.focusPreviousUnit(option);
+                }
             });
         });
 
@@ -107,6 +136,84 @@ class AutoBattlerClient {
         this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
         this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '1') this.selectUnitByType('melee');
+            if (e.key === '2') this.selectUnitByType('ranged');
+            if (e.key === '3') this.selectUnitByType('thrower');
+            if (e.key === '4') this.selectUnitByType('tank');
+            if (e.key === 'Escape') this.clearSelection();
+        });
+    }
+
+    selectUnit(option) {
+        document.querySelectorAll('.unit-option').forEach(opt => 
+            opt.classList.remove('selected')
+        );
+        option.classList.add('selected');
+        this.selectedUnitType = option.dataset.unitType;
+        
+        // Announce selection for screen readers
+        this.announceSelection(option);
+    }
+
+    focusNextUnit(currentOption) {
+        const options = Array.from(document.querySelectorAll('.unit-option'));
+        const currentIndex = options.indexOf(currentOption);
+        const nextIndex = (currentIndex + 1) % options.length;
+        options[nextIndex].focus();
+    }
+
+    focusPreviousUnit(currentOption) {
+        const options = Array.from(document.querySelectorAll('.unit-option'));
+        const currentIndex = options.indexOf(currentOption);
+        const prevIndex = currentIndex === 0 ? options.length - 1 : currentIndex - 1;
+        options[prevIndex].focus();
+    }
+
+    selectUnitByType(unitType) {
+        const option = document.querySelector(`[data-unit-type="${unitType}"]`);
+        if (option) {
+            this.selectUnit(option);
+            option.focus();
+        }
+    }
+
+    clearSelection() {
+        document.querySelectorAll('.unit-option').forEach(opt => 
+            opt.classList.remove('selected')
+        );
+        this.selectedUnitType = null;
+        
+        // Announce clear selection
+        const announcement = document.createElement('div');
+        announcement.setAttribute('role', 'status');
+        announcement.setAttribute('aria-live', 'polite');
+        announcement.textContent = 'Selection cleared';
+        announcement.style.position = 'absolute';
+        announcement.style.left = '-9999px';
+        document.body.appendChild(announcement);
+        
+        setTimeout(() => {
+            document.body.removeChild(announcement);
+        }, 1000);
+    }
+
+    announceSelection(option) {
+        const unitType = option.dataset.unitType;
+        const label = option.getAttribute('aria-label');
+        const announcement = document.createElement('div');
+        announcement.setAttribute('role', 'status');
+        announcement.setAttribute('aria-live', 'polite');
+        announcement.textContent = `Selected: ${label}`;
+        announcement.style.position = 'absolute';
+        announcement.style.left = '-9999px';
+        document.body.appendChild(announcement);
+        
+        setTimeout(() => {
+            document.body.removeChild(announcement);
+        }, 1000);
     }
 
     connect() {
@@ -235,6 +342,9 @@ class AutoBattlerClient {
         // Draw units
         this.drawUnits();
 
+        // Draw AoE effects
+        this.drawAoEEffects();
+
         // Draw phase overlay
         if (this.gameState.phase === 'PLACEMENT') {
             this.drawPlacementOverlay();
@@ -242,7 +352,12 @@ class AutoBattlerClient {
     }
 
     drawGrid() {
-        this.ctx.strokeStyle = '#333';
+        // Clear canvas with high contrast background
+        this.ctx.fillStyle = '#000000';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Draw grid lines with better contrast
+        this.ctx.strokeStyle = '#444444';
         this.ctx.lineWidth = 1;
 
         // Draw grid lines
@@ -260,32 +375,51 @@ class AutoBattlerClient {
             this.ctx.stroke();
         }
 
-        // Draw player areas with proper coloring based on current player
+        // Draw player areas with better contrast and visual distinction
         if (this.playerSlot === 'PLAYER_A') {
-            // Player A's area (left side) - normal color
-            this.ctx.fillStyle = 'rgba(33, 150, 243, 0.1)'; // Blue
+            // Player A's area (left side) - normal color with better contrast
+            this.ctx.fillStyle = 'rgba(33, 150, 243, 0.15)'; // Blue with more opacity
             this.ctx.fillRect(0, 0, 4 * this.tileSize.width, this.canvas.height);
             
-            // Player B's area (right side) - grayed out
-            this.ctx.fillStyle = 'rgba(128, 128, 128, 0.2)'; // Gray
+            // Player B's area (right side) - more subtle
+            this.ctx.fillStyle = 'rgba(100, 100, 100, 0.1)'; // Lighter gray
             this.ctx.fillRect(4 * this.tileSize.width, 0, 4 * this.tileSize.width, this.canvas.height);
         } else {
-            // Player B's area (right side) - normal color
-            this.ctx.fillStyle = 'rgba(244, 67, 54, 0.1)'; // Red
+            // Player B's area (right side) - normal color with better contrast
+            this.ctx.fillStyle = 'rgba(244, 67, 54, 0.15)'; // Red with more opacity
             this.ctx.fillRect(4 * this.tileSize.width, 0, 4 * this.tileSize.width, this.canvas.height);
             
-            // Player A's area (left side) - grayed out
-            this.ctx.fillStyle = 'rgba(128, 128, 128, 0.2)'; // Gray
+            // Player A's area (left side) - more subtle
+            this.ctx.fillStyle = 'rgba(100, 100, 100, 0.1)'; // Lighter gray
             this.ctx.fillRect(0, 0, 4 * this.tileSize.width, this.canvas.height);
         }
 
-        // Draw area divider
-        this.ctx.strokeStyle = '#666';
+        // Draw area divider with higher contrast
+        this.ctx.strokeStyle = '#666666';
         this.ctx.lineWidth = 2;
         this.ctx.beginPath();
         this.ctx.moveTo(4 * this.tileSize.width, 0);
         this.ctx.lineTo(4 * this.tileSize.width, this.canvas.height);
         this.ctx.stroke();
+        
+        // Draw grid coordinates for accessibility (optional)
+        if (this.gameState && this.gameState.phase === 'PLACEMENT') {
+            this.drawGridCoordinates();
+        }
+    }
+
+    drawGridCoordinates() {
+        this.ctx.fillStyle = '#888888';
+        this.ctx.font = '10px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        for (let x = 0; x < this.gridSize.width; x++) {
+            for (let y = 0; y < this.gridSize.height; y++) {
+                const pos = this.gridToScreen(x, y);
+                this.ctx.fillText(`${x},${y}`, pos.x + 10, pos.y + 10);
+            }
+        }
     }
 
     drawUnits() {
@@ -304,30 +438,86 @@ class AutoBattlerClient {
     drawUnit(pos, unit, isOwnUnit) {
         const centerX = pos.x + this.tileSize.width / 2;
         const centerY = pos.y + this.tileSize.height / 2;
-        const radius = 25;
+        const radius = unit.type === 'tank' ? 28 : 25; // Tanks are slightly larger
 
-        // Draw unit circle
+        // Draw unit shadow for depth
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         this.ctx.beginPath();
-        this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        
-        if (unit.owner === 'A') {
-            this.ctx.fillStyle = isOwnUnit ? '#2196F3' : '#1976D2';
-        } else {
-            this.ctx.fillStyle = isOwnUnit ? '#f44336' : '#d32f2f';
-        }
+        this.ctx.arc(centerX + 2, centerY + 2, radius, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // Draw unit border
-        this.ctx.strokeStyle = isOwnUnit ? '#fff' : '#ccc';
+        // Draw unit circle with gradient
+        const gradient = this.ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+        if (unit.owner === 'A') {
+            gradient.addColorStop(0, isOwnUnit ? '#42A5F5' : '#2196F3');
+            gradient.addColorStop(1, isOwnUnit ? '#1565C0' : '#1976D2');
+        } else {
+            gradient.addColorStop(0, isOwnUnit ? '#EF5350' : '#f44336');
+            gradient.addColorStop(1, isOwnUnit ? '#C62828' : '#d32f2f');
+        }
+        
+        this.ctx.fillStyle = gradient;
+        this.ctx.beginPath();
+        this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Draw unit border with high contrast
+        this.ctx.strokeStyle = isOwnUnit ? '#ffffff' : '#e0e0e0';
         this.ctx.lineWidth = isOwnUnit ? 3 : 2;
         this.ctx.stroke();
+        
+        // Draw AoE indicator for thrower units
+        if (unit.type === 'thrower') {
+            this.ctx.strokeStyle = '#FFD700'; // Gold color for AoE
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([3, 3]);
+            this.ctx.beginPath();
+            this.ctx.arc(centerX, centerY, radius + 8, 0, Math.PI * 2);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+            
+            // Draw AoE range indicator
+            this.ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
+            this.ctx.beginPath();
+            this.ctx.arc(centerX, centerY, radius + 8, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+        
+        // Draw shield indicator for tank units
+        if (unit.type === 'tank') {
+            this.ctx.strokeStyle = '#4CAF50'; // Green for defense
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([5, 2]);
+            this.ctx.beginPath();
+            this.ctx.arc(centerX, centerY, radius + 3, 0, Math.PI * 2);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+        }
 
         // Draw unit type
         this.ctx.fillStyle = '#fff';
         this.ctx.font = 'bold 12px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(unit.type === 'melee' ? 'M' : 'R', centerX, centerY - 5);
+        
+        let unitLabel;
+        switch (unit.type) {
+            case 'melee':
+                unitLabel = 'M';
+                break;
+            case 'ranged':
+                unitLabel = 'R';
+                break;
+            case 'thrower':
+                unitLabel = 'Th';
+                break;
+            case 'tank':
+                unitLabel = 'Tk';
+                break;
+            default:
+                unitLabel = '?';
+        }
+        this.ctx.fillText(unitLabel, centerX, centerY - 5);
 
         // Draw HP bar
         const hpPercentage = unit.stats.hp / unit.stats.maxHp;
@@ -342,6 +532,64 @@ class AutoBattlerClient {
         this.ctx.fillStyle = hpPercentage > 0.5 ? '#4CAF50' : 
                             hpPercentage > 0.25 ? '#FF9800' : '#f44336';
         this.ctx.fillRect(barX, barY, barWidth * hpPercentage, barHeight);
+    }
+
+    drawAoEEffects() {
+        if (!this.gameState || this.gameState.phase !== 'BATTLE') return;
+        
+        // Check for thrower units and draw AoE indicators during battle
+        for (const player of this.gameState.players) {
+            for (const unit of player.units) {
+                if (unit.type === 'thrower' && unit.state === 'ATTACK' && unit.targetId) {
+                    const target = this.findUnitById(unit.targetId);
+                    if (target) {
+                        const pos = this.gridToScreen(target.position.x, target.position.y);
+                        
+                        // Draw AoE explosion effect
+                        this.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+                        this.ctx.strokeStyle = '#FFD700';
+                        this.ctx.lineWidth = 3;
+                        
+                        // Draw expanding circles for explosion effect
+                        for (let i = 1; i <= 3; i++) {
+                            this.ctx.globalAlpha = 0.3 / i;
+                            this.ctx.beginPath();
+                            this.ctx.arc(
+                                pos.x + this.tileSize.width / 2,
+                                pos.y + this.tileSize.height / 2,
+                                10 * i,
+                                0,
+                                Math.PI * 2
+                            );
+                            this.ctx.stroke();
+                        }
+                        this.ctx.globalAlpha = 1.0;
+                        
+                        // Draw AoE area highlight
+                        this.ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
+                        this.ctx.fillRect(
+                            pos.x - this.tileSize.width,
+                            pos.y - this.tileSize.height,
+                            this.tileSize.width * 3,
+                            this.tileSize.height * 3
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    findUnitById(unitId) {
+        if (!this.gameState) return null;
+        
+        for (const player of this.gameState.players) {
+            for (const unit of player.units) {
+                if (unit.id === unitId) {
+                    return unit;
+                }
+            }
+        }
+        return null;
     }
 
     drawPlacementOverlay() {
@@ -440,12 +688,18 @@ class AutoBattlerClient {
     }
     
     startRefreshLoop() {
-        // Refresh every second in placement phase
+        // Refresh every second in placement phase, more frequently in battle
         setInterval(() => {
-            if (this.gameState && this.gameState.phase === 'PLACEMENT') {
-                this.render();
-                this.updateUI();
-                this.lastRefreshTime = Date.now();
+            if (this.gameState) {
+                if (this.gameState.phase === 'PLACEMENT') {
+                    this.render();
+                    this.updateUI();
+                    this.lastRefreshTime = Date.now();
+                } else if (this.gameState.phase === 'BATTLE') {
+                    // More frequent refresh during battle for HP updates
+                    this.render();
+                    this.updateUI();
+                }
             }
         }, this.placementRefreshInterval);
     }

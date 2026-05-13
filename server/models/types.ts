@@ -1,6 +1,11 @@
+import { Grid } from './Grid';
+import { Player } from './Player';
+
 export enum UnitType {
   MELEE = 'melee',
-  RANGED = 'ranged'
+  RANGED = 'ranged',
+  THROWER = 'thrower',
+  TANK = 'tank'
 }
 
 
@@ -22,7 +27,7 @@ export enum GamePhase {
 }
 
 export interface Position {
-  x: number; // column 0-7
+  x: number; // column 0-8
   y: number; // row 0-2
 }
 
@@ -31,6 +36,7 @@ export interface UnitStats {
   maxHp: number;
   damage: number;
   range: number; // Manhattan distance
+  aoeRadius: number; // Area of effect radius (1 for single target, 3 for 3x3 area)
 }
 
 export interface Unit {
@@ -47,7 +53,7 @@ export interface Unit {
 
 // Player class is defined in Player.ts
 
-export interface Grid {
+export interface IGrid {
   width: number; // 8
   height: number; // 3
   tiles: (Unit | null)[][];
@@ -55,8 +61,8 @@ export interface Grid {
 
 export interface GameState {
   phase: GamePhase;
-  players: import('./Player').Player[];
-  grid: import('./Grid').Grid;
+  players: Player[];
+  grid: Grid;
   currentRound: number;
   roundStartTime: number;
   placementTimeLimit: number; // 30 seconds

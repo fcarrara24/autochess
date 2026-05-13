@@ -22,11 +22,15 @@
   },
   "homepage": "https://github.com/fcarrara24/autochess#readme",
   "dependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/node": "^25.6.0",
+    "@types/uuid": "^10.0.0",
+    "cookie-parser": "^1.4.7",
     "ecstatic": "^4.1.4",
     "nodemon": "^3.1.14",
     "socket.io": "^4.8.3",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "uuid": "^14.0.0"
   }
 }

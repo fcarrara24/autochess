@@ -1,8 +1,9 @@
-import { UnitType, UnitState, PlayerSlot, Position, UnitStats } from './types';
+import { UnitType, UnitState, PlayerSlot, Position, UnitStats, Unit } from './types';
 import { Grid } from './Grid';
+import { UNIT_STATS } from './UnitStats';
 
 export class UnitFactory {
-  static createUnit(type: UnitType, owner: PlayerSlot, position: Position, id: string): import('./types').Unit {
+  static createUnit(type: UnitType, owner: PlayerSlot, position: Position, id: string): Unit {
     const stats = this.getUnitStats(type);
     return {
       id,
@@ -17,29 +18,16 @@ export class UnitFactory {
   }
 
   private static getUnitStats(type: UnitType): UnitStats {
-    switch (type) {
-      case UnitType.MELEE:
-        return {
-          hp: 30,
-          maxHp: 30,
-          damage: 10,
-          range: 1
-        };
-      case UnitType.RANGED:
-        return {
-          hp: 20,
-          maxHp: 20,
-          damage: 6,
-          range: 2
-        };
-      default:
-        throw new Error(`Unknown unit type: ${type}`);
+    const stats = UNIT_STATS[type];
+    if (!stats) {
+      throw new Error(`Unknown unit type: ${type}`);
     }
+    return { ...stats };
   }
 }
 
 export class UnitController {
-  static getUnitInForwardInteractionLine(unit: import('./types').Unit, grid: Grid, allUnits: import('./types').Unit[]): import('./types').Unit | null {
+  static getUnitInForwardInteractionLine(unit: Unit, grid: Grid, allUnits: Unit[]): Unit | null {
     const interactionPositions = grid.getForwardInteractionLine(unit.position, unit.owner);
     
     for (const pos of interactionPositions) {
@@ -52,12 +40,12 @@ export class UnitController {
     return null;
   }
 
-  static getValidMovePositions(unit: import('./types').Unit, grid: Grid): Position[] {
+  static getValidMovePositions(unit: Unit, grid: Grid): Position[] {
     const neighbors = grid.getNeighbors(unit.position);
     return neighbors.filter(pos => !grid.isOccupied(pos));
   }
 
-  static getTargetPriority(unit: import('./types').Unit, grid: Grid, allUnits: import('./types').Unit[]): import('./types').Unit | null {
+  static getTargetPriority(unit: Unit, grid: Grid, allUnits: Unit[]): Unit | null {
     // Priority 1: Previous target (if still in range)
     if (unit.targetId) {
       const previousTarget = allUnits.find(u => u.id === unit.targetId);
@@ -125,7 +113,7 @@ export class UnitController {
     }
   }
 
-  static updateUnitState(unit: import('./types').Unit, grid: Grid, allUnits: import('./types').Unit[]): void {
+  static updateUnitState(unit: Unit, grid: Grid, allUnits: Unit[]): void {
     const target = this.getTargetPriority(unit, grid, allUnits);
     
     if (target) {
@@ -142,14 +130,14 @@ export class UnitController {
     }
   }
 
-  static resetUnit(unit: import('./types').Unit): void {
+  static resetUnit(unit: Unit): void {
     unit.position = { ...unit.originalPosition };
     unit.stats.hp = unit.stats.maxHp;
     unit.state = UnitState.SEEK;
     unit.targetId = undefined;
   }
 
-  static isDead(unit: import('./types').Unit): boolean {
+  static isDead(unit: Unit): boolean {
     return unit.stats.hp <= 0;
   }
 }
