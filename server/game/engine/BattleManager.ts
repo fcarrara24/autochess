@@ -1,5 +1,19 @@
 import { Unit, Position, UnitState } from '../../models';
 
+
+/**
+ * set unit (at reset project)
+ * 
+ * process tick 
+ * -> handle movement phase
+ *   -> find nearest enemy and move toward them
+ *   -> get and decide which enemy to attack
+ * -> handle attack phase
+ *  
+ * -> attacck and AOE effect
+ * 
+ * reset
+ */
 export class BattleManager {
   private units: Unit[] = [];
   private tickCount: number = 0;

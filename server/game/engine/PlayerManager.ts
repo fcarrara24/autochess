@@ -1,6 +1,9 @@
 import { PlayerSlot } from '../../models';
 import { Player } from '../../models/Player';
 
+/**
+ * add remove and keeps track of connected players
+ */
 export class PlayerManager {
   private players: Player[] = [];
 
