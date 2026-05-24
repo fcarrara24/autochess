@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const http_1 = require("http");
 const socket_io_1 = require("socket.io");
@@ -6,7 +9,8 @@ const fs_1 = require("fs");
 const path_1 = require("path");
 const uuid_1 = require("uuid");
 const GameEngine_1 = require("./game/GameEngine");
-const NetworkManager_1 = require("./network/NetworkManager");
+const NetworkManagerNew_1 = require("./network/NetworkManagerNew");
+const path_2 = __importDefault(require("path"));
 const PORT = process.env.PORT || 3000;
 // Simple static file server
 const getContentType = (filePath) => {
@@ -50,10 +54,15 @@ const setPlayerIdCookie = (res, playerId) => {
     res.setHeader('Set-Cookie', cookieValue);
 };
 const server = (0, http_1.createServer)((req, res) => {
-    let filePath = `${__dirname}/../public${req.url}`;
+    // let filePath = `${__dirname}/../public${req.url}`;
+    const publicDir = path_2.default.join(process.cwd(), 'public');
+    let filePath = path_2.default.join(publicDir, req.url || '');
     // Default to index.html for root path
+    // if (req.url === '/') {
+    //   filePath = `${__dirname}/../public/index.html`;
+    // }
     if (req.url === '/') {
-        filePath = `${__dirname}/../public/index.html`;
+        filePath = path_2.default.join(publicDir, 'index.html');
     }
     if ((0, fs_1.existsSync)(filePath)) {
         const content = (0, fs_1.readFileSync)(filePath);
@@ -83,7 +92,7 @@ const playerSessions = new Map();
 // Initialize game engine
 const gameEngine = new GameEngine_1.GameEngine();
 // Initialize network manager
-const networkManager = new NetworkManager_1.NetworkManager(io, gameEngine);
+const networkManager = new NetworkManagerNew_1.NetworkManager(io, gameEngine);
 // Start server
 server.listen(PORT, () => {
     console.log(`Auto-battler server running on port ${PORT}`);
