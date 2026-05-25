@@ -5,6 +5,8 @@ import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { GameEngine } from './game/GameEngine';
 import { NetworkManager } from './network/NetworkManagerNew';
+import path from 'path';
+
 
 const PORT = process.env.PORT || 3000;
 
@@ -59,11 +61,17 @@ const setPlayerIdCookie = (res: any, playerId: string): void => {
 };
 
 const server = createServer((req, res) => {
-  let filePath = `${__dirname}/../public${req.url}`;
+  // let filePath = `${__dirname}/../public${req.url}`;
+  const publicDir = path.join(process.cwd(), 'public');
+
+  let filePath = path.join(publicDir, req.url || '');
 
   // Default to index.html for root path
+  // if (req.url === '/') {
+  //   filePath = `${__dirname}/../public/index.html`;
+  // }
   if (req.url === '/') {
-    filePath = `${__dirname}/../public/index.html`;
+    filePath = path.join(publicDir, 'index.html');
   }
 
   if (existsSync(filePath)) {
